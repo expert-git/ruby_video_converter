@@ -1,0 +1,112 @@
+// Sticky footer styles
+$footer-height: 120px;
+html {
+  position: relative;
+  min-height: 100%;
+}
+body {
+  padding-top: 4rem;
+  // Margin bottom by footer height
+  margin-bottom: $footer-height;
+}
+.container.margin-bottom-10 {
+  margin-bottom: 10rem;
+}
+.jumbotron.as-seen-on {
+  position: absolute;
+  bottom: $footer-height;
+}
+.footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: $footer-height;
+  // Vertically center the text there
+  // line-height: 60px;
+}
+// Custom bootstrap
+.navbar {
+  .border-1px {
+    border-top: 0.5px;
+    border-bottom: 0.5px;
+  }
+  #navbar-gafv.flew-grow-quarter-default {
+    flex-grow: 0.25;
+  }
+}
+.alert-fixed-right {
+  position: fixed;
+  z-index: 9999;
+  .alert {
+    margin-bottom: 0.2rem;
+  }
+}
+.btn-yellow {
+  color: #856404;
+  background-color: #fff3cd;
+  border-color: #ffeeba;
+  &:hover {
+    color: #212529;
+    background-color: #ffd700;
+    border-color: #ffd700;
+  }
+  &:active {
+    color: #212529;
+    background-color: #ffd700;
+    border-color: #ffd700;
+  }
+}
+input#terms {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+#navbar-search {
+  input#terms.navbar-search-width-12 {
+    width: 12rem;
+  }
+}
+.jumbotron {
+  margin-top: -2.5rem;
+  padding-bottom: 1rem;
+  .homepage-h1 {
+    font-size: 2rem;
+  }
+}
+.cursor-default {
+  cursor: default !important;
+}
+.cursor-pointer,
+button[type="submit"],
+input[type="submit"] {
+  cursor: pointer;
+}
+.float-link {
+  position: relative;
+  z-index: 10;
+}
+.card {
+  overflow: hidden;
+  .card-img-overlay.duration-position {
+    height: 1rem;
+    padding: 0;
+  }
+  .card-body.custom-padding {
+    word-wrap: break-word;
+    padding: 0.5rem;
+    .card-title.custom-padding {
+      padding-top: 0.5rem;
+      margin-bottom: 0;
+    }
+  }
+}
+.line-height-2 {
+  line-height: 2;
+}
+#footer-nav.nav-pills > a:active,
+#footer-nav.nav-pills > a:hover {
+  color: #fff;
+  background-color: #007bff;
+}
+.margin-bottom-negative-3rem {
+  margin-bottom:-3rem;
+}

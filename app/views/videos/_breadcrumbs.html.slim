@@ -1,0 +1,8 @@
+nav.breadcrumb
+  = link_to "Home", root_path, class: "breadcrumb-item"
+  - if controller_name == "videos" && action_name == "search"
+    span.breadcrumb-item.active Search results
+  - if controller_name == "videos" && action_name == "video"
+    = link_to "Search results", request.referrer.present? ? request.referrer : root_path, class: "breadcrumb-item"
+    span.breadcrumb-item.active 
+      = truncate(@video.title, length: 100)

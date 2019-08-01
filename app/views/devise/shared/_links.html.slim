@@ -1,0 +1,28 @@
+- if controller_name != 'sessions'
+  - unless login_modal
+      hr
+      .text-center
+        | Already have an account?&nbsp;
+        button type="button" class="modal-btn cursor-pointer" data-toggle="modal" data-target="#loginModalCenter" Login
+- if devise_mapping.registerable? && controller_name != 'registrations'
+  / hr
+  / .text-center
+  /   | Don't have an account?
+  /   / = link_to "Sign up", new_registration_path(resource_name)
+  /   = link_to "Sign up", new_membership_path
+/ - if devise_mapping.recoverable? && controller_name != 'passwords' && controller_name != 'registrations'
+/   br
+/   = link_to "Forgot password?", new_password_path(resource_name)
+/   br
+- if devise_mapping.confirmable? && controller_name != 'confirmations'
+  - if controller_name != 'registrations'
+    - if login_modal
+      hr
+      button type="button" class="btn btn-block btn-outline-primary" data-toggle="modal" data-target="#resendConfirmModal" Didn't receive confirmation email?
+- if devise_mapping.lockable? && resource_class.unlock_strategy_enabled?(:email) && controller_name != 'unlocks'
+    / br
+    = link_to "Didn't receive unlock instructions?", new_unlock_path(resource_name), class: "btn btn-block btn-outline-primary"
+/ - if devise_mapping.omniauthable?
+/   br
+/   - resource_class.omniauth_providers.each do |provider|
+/     = link_to "Sign in with #{OmniAuth::Utils.camelize(provider)}", omniauth_authorize_path(resource_name, provider)

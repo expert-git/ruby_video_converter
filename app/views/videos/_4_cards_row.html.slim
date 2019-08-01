@@ -1,0 +1,23 @@
+- @videos_collection.each do |video|
+  .col-6.col-md-3
+    .card.mb-3
+      = link_to video_path(id: video.ytid) do
+        = image_tag(video.thumbnail_url(:medium), alt: "#{video.title}", class: "card-img-top img-fluid")
+        .card-img-overlay.duration-position
+          small.float-right
+            strong.bg-dark.text-white
+              | &nbsp;
+              = seconds_to_time_helper(video.duration)
+              | &nbsp;
+      .card-body.custom-padding
+        .card-subtitle.clearfix
+          small.float-left
+            = published_at_helper(video.published_on)
+          small.float-right
+            = number_with_delimiter_helper(video.views) + "  views"
+        h6.card-title.custom-padding
+          small
+            = link_to "#{truncate(video.title, length: 105)}".html_safe, video_path(id: video.ytid), "data-turbolinks": false
+        / p.card-text
+        /   small
+        /     = truncate(video.description, length: 200)

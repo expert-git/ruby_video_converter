@@ -1,0 +1,24 @@
+- title @video.title
+- meta_tag :description, @video.description
+- meta_tag :keywords, @video.keywords
+- check_evercookie(:uid)
+
+div.container.video-display data-id="#{@video.title.parameterize}"
+  = render "videos/breadcrumbs"
+  .row.my-2
+    .col-md-7
+      .embed-responsive.embed-responsive-16by9
+        iframe.embed-responsive-item allowfullscreen="" src="https://www.youtube.com/embed/#{@video.ytid}"
+      br
+      p.float-right
+        = number_with_delimiter(@video.views.to_s, delimiter: ",") + "  views"
+      p
+        = "Published on " + @video.published_on.strftime("%B %d, %Y")
+      h5
+        = truncate(@video.title, length: 100)
+      p.d-none.d-sm-inline
+        = truncate(@video.description, length: 600)
+      .d-inline.d-sm-none
+        hr
+    .col-md-5
+      =render "videos/convert_options"

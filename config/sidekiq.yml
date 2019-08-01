@@ -1,0 +1,7 @@
+---
+
+# By default, Sidekiq uses a single queue called "default" in Redis
+:queues:
+  - default
+  - mailers
+  - video_conversion_job

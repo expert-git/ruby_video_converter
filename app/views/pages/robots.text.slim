@@ -1,0 +1,11 @@
+- if Rails.env.production?
+  |
+    User-Agent: *
+    Allow: /
+    Disallow: /admin
+    Sitemap:
+  = " #{Rails.application.credentials[Rails.env.to_sym][:SITEMAP_URL]}"
+- else
+  |
+    User-Agent: *
+    Disallow: /

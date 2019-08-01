@@ -1,0 +1,31 @@
+.jumbotron
+  .container
+    .row
+      .col-10.offset-1.col-sm-8.offset-sm-3
+        h1.homepage-h1
+          | Convert Youtube videos to MP3
+        = form_tag(videos_search_path, method: "get", enforce_utf8: false, class: "form-inline") do
+          .input-group.w-75
+            = text_field_tag :terms, params[:terms], placeholder: "Enter search terms", class: "form-control", required: true
+            .input-group-btn.input-group-append
+              / button.btn.btn-secondary.dropdown-toggle.border-right-0 aria-expanded="false" aria-haspopup="true" data-toggle="dropdown" type="button" class="cursor-pointer"
+              button.btn.btn-secondary.border-right-0.border-1px.cursor-default
+                | Youtube
+              / .dropdown-menu.dropdown-menu-right.disabled
+                / a.dropdown-item Vimeo
+                / a.dropdown-item Dailymotion
+            .input-group-btn.input-group-append
+              = submit_tag "Search", :name => nil, class: "btn btn-primary"
+        small.text-muted
+          i
+            | or enter the URL: https://www.youtube.com/watch?v=gvdf5n-zI14
+            / = link_to "https://www.youtube.com/watch?v=gvdf5n-zI14".html_safe, videos_search_path(terms: "https://www.youtube.com/watch?v=gvdf5n-zI14")
+.container.margin-bottom-10
+  .row
+    .col
+      h4.text-center
+        | Most recent downloads
+      hr
+  .row
+    = render "videos/4_cards_row"
+br

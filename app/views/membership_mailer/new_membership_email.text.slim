@@ -1,0 +1,12 @@
+| You have created a new membership for GetAudioFromVideo.com.  Here is your payment details:
+= "\n\n"
+| Subscription: 
+= @subscription.plan.name 
+= "\n"
+| Amount: 
+= amount_helper(@subscription.amount) 
+= "\n"
+| Payment date: 
+= date_helper(@subscription.created_at)
+= "\n\n"
+| If you have any questions, please contact us at: support@getaudiofromvideo.com.

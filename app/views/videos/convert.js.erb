@@ -1,0 +1,7 @@
+<% unless @message.blank? %>
+  $(".justify-content-end").html("<%= j render partial: 'layouts/flash_message', locals: {message_type: 'error', message: @message} %>");
+  guest_download_limit_triggered();
+<% end %>
+<% unless @video.blank? %>
+  $("#conversion-status-text").attr("data-id", "<%= @video.id %>");
+<% end %>

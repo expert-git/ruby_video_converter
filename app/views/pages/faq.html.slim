@@ -1,0 +1,127 @@
+- title 'FAQ - Frequently Asked Questions'
+
+.container
+  .row.justify-content-center
+    .col-10
+      .jumbotron
+        h3 FAQ - Frequently Asked Questions
+  .row.justify-content-center
+    .col-10
+      #faq-accordian data-children=".item"
+        .item.mb-2
+          a aria-controls="faq-question-1" aria-expanded="true" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-1"
+            | How much does it cost?
+          #faq-question-1.collapse.show role="tabpanel"
+            p.ml-4
+              | Our membership plan is $10/month, or save 20% by signing up with our annual plan for $8/month&nbsp;
+              i
+                | (paid annually).
+        .item.mb-2
+          a aria-controls="faq-question-2" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-2"
+            | How do I view my download history?
+          #faq-question-2.collapse role="tabpanel"
+            p.ml-4
+              | Only&nbsp;
+              strong
+                u.font-italic
+                  | members
+              | &nbsp;have access to their download history.
+            p.ml-4
+              | Login to your account and select "Download History" from the dropdown menu.
+        .item.mb-2
+          a aria-controls="faq-question-3" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-3"
+            | How do I upgrade my account?
+          #faq-question-3.collapse role="tabpanel"
+            p.ml-4
+              | Login to your account, select "Membership" from the dropdown menu.  If your membership is eligible to upgrade, you will see a green&nbsp;
+              <button type="button" class="btn btn-sm btn-outline-success">Upgrade</button>&nbsp;
+              | button next to your subscription.
+        .item.mb-2
+          a aria-controls="faq-question-4" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-4"
+            | How do I cancel my account?
+          #faq-question-4.collapse role="tabpanel"
+            p.ml-4
+              | Login to your account, select "Membership" from the dropdown menu.  You will see a red&nbsp;
+              <button type="button" class="btn btn-sm btn-outline-danger">Cancel</button>&nbsp;
+              | button next to your subscription.
+        .item.mb-2
+          a aria-controls="faq-question-5" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-5"
+            | Can I get a refund?
+          #faq-question-5.collapse role="tabpanel"
+            p.ml-4
+              | Sorry, we do not give refunds.  If you cancel, you won't be billed again and your membership will remain valid until the end of its current billing cycle.
+        .item.mb-2
+          a aria-controls="faq-question-6" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-6"
+            | Help, a video won't convert!
+          #faq-question-6.collapse role="tabpanel"
+            p.ml-4
+              | First try converting the video to "MP4" format, and once that successfully completes, convert it again in your original format. This usually works.
+            p.ml-4
+              | Sometimes due to large video size or slow internet speed, the download might be slow.  Please wait a little longer, or you can try converting another video of the same song.
+            p.ml-4
+              | Only&nbsp;
+              strong
+                u.font-italic
+                  | members
+              | &nbsp;have access to support.  If you are still having problems, please&nbsp;
+              = link_to "contact us", new_contact_form_path, class: "font-italic font-weight-bold"
+              | .
+        .item.mb-2
+          a aria-controls="faq-question-7" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-7"
+            | Help, I can't download a video longer than 6 minutes!
+          #faq-question-7.collapse role="tabpanel"
+            p.ml-4
+              | Guest users are limited to videos up to 6 minutes in duration.
+            p.ml-4
+              | Only&nbsp;
+              strong
+                u.font-italic
+                  | members
+              | &nbsp;can download videos of unlimited duration.  Signup as a member&nbsp;
+              = link_to "here", new_membership_path, class: "font-italic font-weight-bold"
+              | .
+        .item.mb-2
+          a aria-controls="faq-question-8" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-8"
+            | Help, I can't download more than 5 videos!
+          #faq-question-8.collapse role="tabpanel"
+            p.ml-4
+              | Guest users are limited to 5 video downloads per day.
+            p.ml-4
+              | Only&nbsp;
+              strong
+                u.font-italic
+                  | members
+              | &nbsp;can download an unlimited number of videos.  Signup as a member&nbsp;
+              = link_to "here", new_membership_path, class: "font-italic font-weight-bold"
+              | .
+        .item.mb-2
+          a aria-controls="faq-question-9" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-9"
+            | How can I request a new feature?
+          #faq-question-9.collapse role="tabpanel"
+            p.ml-4
+              | Only&nbsp;
+              strong
+                u.font-italic
+                  | members
+              | &nbsp;can request new features.  If there is something you want to request, please&nbsp;
+              = link_to "contact us", new_contact_form_path, class: "font-italic font-weight-bold"
+              | .
+        .item.mb-2
+          a aria-controls="faq-question-10" aria-expanded="false" data-parent="#faq-accordian" data-toggle="collapse" href="#faq-question-10"
+            | Is it legal to download videos?
+          #faq-question-10.collapse role="tabpanel"
+            p.ml-4
+              | Yes, it is fully legal to download media that is copyrighted and that one has to pay to listen to/watch, whether it contains ads or not. If this is done solely for personal use and not for commercial distribution — it is 100% legal. This is why torrent clients and Ad blockers are in such high demand.
+            p.ml-4
+              | When it comes to YouTube or similar websites, it may be considered a "TOS" violation but not an illegal activity by any means.
+            p.ml-4
+              | According to Audio Home Recording Act:
+            p.ml-5
+              em
+                | 17 U.S.C. § 1008, as legislated by the Audio Home Recording Act of 1992, says that non-commercial copying by consumers of digital and analog musical recordings is not copyright infringement. Non-commercial includes such things as resale not in the course of business, perhaps of normal use working copies which are no longer wanted. It is unlikely to include resale of copies in bulk; Napster tried to use the Section 1008 defense but was rejected because it was a business.
+            p.ml-5
+              em
+                | From House Report No. 102-873(I), September 17, 1992: "In the case of home taping, the [Section 1008] exemption protects all noncommercial copying by consumers of digital and analog musical recordings" .
+            p.ml-5
+              em
+                | From House Report No. 102-780(I), August 4, 1992: "In short, the reported legislation [Section 1008] would clearly establish that consumers cannot be sued for making analog or digital audio copies for private noncommercial use”.

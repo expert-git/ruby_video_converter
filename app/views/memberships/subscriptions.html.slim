@@ -1,0 +1,69 @@
+- title 'Subscriptions'
+
+.container
+  .row.justify-content-center.my-4
+    .col-12
+      .float-right
+        - unless (current_member.subscriptions.where(stripe_status: "active").present? || current_member.subscriptions.where(stripe_status: "trialing").present?)
+          = link_to "Start membership&nbsp;&nbsp;<i class='fa fa-arrow-circle-right'></i>".html_safe, new_membership_path, class: "btn btn-block btn-outline-primary cursor-pointer"
+      h4 Membership
+      table.table.table-responsve.table-sm.table-striped.table-hover
+        thead.thead-dark
+          tr
+            th #
+            th Subscription
+            th Start
+            th End
+            th Amount
+            th Status
+            / th Last updated
+            th Credit card
+            th
+            th
+            th
+        tbody
+          - count = 1
+          - @subscriptions.each do |subscription|
+            - if subscription.plan.present?
+              tr
+                td
+                  = count
+                td
+                  = subscription.plan.name
+                td
+                  = date_helper(subscription.current_period_start)
+                td
+                  = date_helper(subscription.current_period_end)
+                td
+                  = display_updated_amount_helper(subscription.plan.stripe_id)
+                td
+                  = status_trialing_helper(subscription)
+                / td
+                /   = date_trialing_helper(subscription)
+                td
+                  = subscription.try(:card_type)
+                  | &nbsp;
+                  = subscription.try(:card_last4)
+                td
+                  = upgrade_button_helper(subscription)
+                  / = upgrade_amount_helper(subscription)
+                td
+                  = update_credit_card_helper(subscription)
+                td
+                  = cancel_button_helper(subscription)
+              - count += 1
+    .row.justify-content-center
+      = will_paginate @subscriptions
+  / - unless current_member.subscriptions.where(stripe_status: "active").present?
+  /   .col-md-6.mx-auto
+  /     .card
+  /       h3.card-header.bg-dark.text-white.text-center
+  /         | Membership details
+  /         / = resource_name.to_s.humanize
+  /       .card-body
+  /         .row.justify-content-center
+  /           h3
+  /             i.text-muted
+  /               | No memberships
+  /         .row.justify-content-center
+  /           .col-md-9.col-lg-8

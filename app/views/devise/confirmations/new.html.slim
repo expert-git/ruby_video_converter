@@ -1,0 +1,17 @@
+- title 'Resend confirmation email'
+
+.col-sm-6.col-md-5.col-lg-4.mx-auto
+  .card
+    h3.card-header.bg-dark.text-white.text-center
+      | Didn't receive confirmation email?
+    .card-body
+      .card-title
+        = form_for(resource, as: resource_name, url: confirmation_path(resource_name), html: { method: :post }) do |f|
+          = devise_error_messages_helper!
+          .form-group
+            = f.label :email
+            = f.email_field :email, autofocus: true, value: (resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email), class: "form-control", required: true
+          .actions
+            = f.submit "Resend confirmation email", class: "btn btn-block btn-success"
+            / = render "devise/shared/links"
+            = render "devise/shared/cancel_button"

@@ -1,0 +1,5 @@
+version: 1
+cron:
+  - name: "SitemapGeneratePeriodicJob"
+    url: "/periodic_tasks"
+    schedule: "0 5 * * 1"

@@ -1,0 +1,16 @@
+p
+  | Hello&nbsp;
+  = @email
+  | ,
+- if @resource.try(:unconfirmed_email?)
+  p
+    | We have received a request to change your email to:&nbsp;
+    = @resource.unconfirmed_email
+  p
+    | To verify this change, please click the link in the "Confirmation instructions" email we sent to your new email address.
+  p
+    | If you don't confirm, your email will not be changed.
+- else
+  p
+    | Your email has been successfully changed to:&nbsp;
+    = @resource.email

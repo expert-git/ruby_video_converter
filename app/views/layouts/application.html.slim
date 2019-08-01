@@ -1,0 +1,52 @@
+doctype html
+html lang="en"
+  head
+    meta[charset="utf-8"]
+    meta[http-equiv="X-UA-Compatible" content="IE=edge"]
+    meta[name="viewport" content="width=device-width, initial-scale=1.0"]
+
+    meta[name="description" content="#{yield_meta_tag(:description, 'Get audio from video easily with our Youtube converter tool. Convert Youtube to MP3 to get audio from Youtube in seconds.')}"]
+    meta[name="keywords" content="#{yield_meta_tag(:keywords, 'get audio from video, get audio from youtube, convert youtube to mp3, youtube converter')}"]
+    meta[name="author" content=""]
+
+    = csrf_meta_tags
+    = action_cable_meta_tag
+
+    - if content_for?(:title)
+      title
+        = yield(:title) + ' | GetAudioFromVideo.com'
+    - else
+      title GetAudioFromVideo.com
+
+    = Gon::Base.render_data
+    = render 'layouts/favicon'
+
+    = stylesheet_link_tag "application", media: "all", "data-turbolinks-track": "reload"
+    = javascript_include_tag "application", "data-turbolinks-track": "reload"
+    / source: https://github.com/turbolinks/turbolinks#working-with-script-elements
+    = javascript_include_tag "//platform-api.sharethis.com/js/sharethis.js#property=5c515ab9d72949001bcca394&product=sticky-share-buttons", "data-turbolinks-eval": "false"
+    - if Rails.env.production?
+      = javascript_include_tag "https://www.googletagmanager.com/gtag/js?id=UA-8374148-1", async: true
+
+    / HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    / WARNING: Respond.js doesn't work if you view the page via file:// -->
+    / [if lt IE 9]>
+    /   <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    /   <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    / <![endif]
+
+  body
+    = render "layouts/navbar"
+
+    - access_denied_message_helper()
+
+    .container-fluid
+      .row.justify-content-end
+        = flash_messages_helper
+
+    = yield
+
+    = render "layouts/footer"
+
+    / back-to-top button
+    / a.cd-top[href="#0"]

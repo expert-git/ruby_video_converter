@@ -1,0 +1,33 @@
+- title 'Download history'
+
+.container
+  .row.justify-content-center.my-4
+    .col-lg-6
+      h4 Download history
+      table.table.table-responsive.table-striped.table-hover
+        thead.thead-dark
+          tr
+            th #
+            th Date
+            th Video
+            th Format
+            / th Status
+            th
+        tbody
+          - @download_history.each_with_index do |converted_video, index|
+            - video = converted_video.video
+            tr
+              td
+                = serial_number_helper(params[:page], @download_history.per_page, index)
+              td
+                = download_at_helper(converted_video.created_at)
+              td
+                = link_to video.title, video_path(id: video.ytid)
+              td
+                = converted_video.format.upcase
+              / td
+              /   h1.badge.badge-warning In process
+              td
+                = link_to 'Download', download_video_path(converted_video_id: converted_video.id), class: "button btn btn-sm btn-outline-primary", "data-turbolinks": false, remote: true
+  .row.justify-content-center
+    = will_paginate @download_history

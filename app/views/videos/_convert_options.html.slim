@@ -1,0 +1,98 @@
+= form_tag(convert_video_path, method: "get", remote: true) do
+  = hidden_field_tag "id", @video.ytid
+  = hidden_field_tag "identifier", video_session_identifier
+  = hidden_field_tag "actual_end_time", @end_time
+  .row.form-group
+    .col-3
+      label.col-form-label for="video-format" Format
+    .col-5
+      = select_tag "video_format", grouped_options_for_select(Video::ALLOWEDFORMATS), id: "video-format", class: "form-control"
+  / .row.form-group
+  /   .col-3
+  /     label.col-form-label for="quality" Quality
+  /   .col-6
+  /     select#quality.form-control
+  /       option 1080p HD
+  /       option 720p HD
+  /       option 480p
+  /       option 360p
+  /       option 240p
+  .row.form-group
+    .col-4
+      label.col-form-label for="start-time" Start
+      button.btn.cursor-pointer#reset-start-time data-placement="top" data-toggle="tooltip" title=("Reset") type="button"
+        | <i class="fa fa-undo"></i>
+      = text_field_tag "start_time", @start_time, id: "start-time", class: "form-control text-center"
+    .col-4
+      label.col-form-label for="end-time" End
+      button.btn.cursor-pointer#reset-end-time data-placement="top" data-toggle="tooltip" title=("Reset") type="button"
+        | <i class="fa fa-undo"></i>
+      = text_field_tag "end_time", @end_time, id: "end-time", class: "form-control text-center"
+  / .row.form-group
+  /   .col-12.form-check
+  /       label.form-chck-label         input#agree-tos.form-check-input type="radio"
+  /         |    I agree to the
+  /         a href="#" Terms of Service
+  .row#start-conversion
+    .col-12
+      button.btn.btn-lg.btn-block.btn-success#conversion-start-button type="submit"
+        | <i class="fa fa-play-circle"></i>&nbsp;&nbsp;Start conversion
+  br
+  .row#conversion-card
+    .col-12
+      .card.bg-light
+        .card-body
+          h5.card-title.text-center
+            | <i id="conversion-timer-spinner" class="fa fa-refresh fa-spin fa-lg fa-fw"></i>&nbsp;
+            | Conversion time:
+            strong.text-danger.conversion-timer
+              | &nbsp;0 seconds
+          .row#conversion-progress-status
+            .col-12
+              | Status:&nbsp;
+              span#conversion-status-text data-id = @video.ytid
+                | Starting...
+          .row#conversion-progress-bar
+            .col-12
+              .progress[style="height: 1.5rem"]
+                .progress-bar.bg-warning.progress-bar-striped.progress-bar-animated aria-valuemax="100" aria-valuemin="0" aria-valuenow="5" role="progressbar" style="width: 5%" 5%
+          br
+          .row#download-file
+            .col-12
+              = link_to "<i class='fa fa-cloud-download'></i>&nbsp;&nbsp;Download file".html_safe, "javascript:void(0)", id: "download-file-button", class: "btn btn-lg btn-block btn-primary disabled", "data-turbolinks": false, remote: true
+  br
+  .row#guest-delay
+    .col-12
+      .card.bg-light
+        .card-body
+          h5.card-title.text-center.guest-delay-countdown
+            | <i id="delay-timer-spinner" class="fa fa-refresh fa-spin fa-lg fa-fw"></i>&nbsp;
+            | Please wait:
+            strong.text-danger.delay-timer
+              | &nbsp;30 seconds
+          .row.guest-delay-countdown
+            .col-5
+              hr
+            .col-2
+             | or
+            .col-5
+              hr
+          h5.card-title.text-center
+            | Create a membership to get:
+          .card-text
+            .row.justify-content-center
+              .col-9
+                p
+                  i.fa.fa-check.text-success
+                  | &nbsp;&nbsp;&nbsp;Skip download delay
+                  br
+                  i.fa.fa-check.text-success
+                  | &nbsp;&nbsp;&nbsp;Unlimited number of downloads
+                  br
+                  i.fa.fa-check.text-success
+                  | &nbsp;&nbsp;&nbsp;Unlimited duration videos
+                  / br
+                  / i.fa.fa-check.text-success
+                  / | &nbsp;&nbsp;&nbsp;Tech support for help
+          = link_to "Start free trial&nbsp;&nbsp;<i class='fa fa-arrow-circle-right'></i>".html_safe, new_membership_path, class:"button btn btn-lg btn-block btn-warning"
+          / = link_to "Start 1 day free trial&nbsp;&nbsp;<i class='fa fa-arrow-circle-right'></i>".html_safe, new_membership_path, class:"button btn btn-lg btn-block btn-yellow"

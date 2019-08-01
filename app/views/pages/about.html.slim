@@ -1,0 +1,39 @@
+- title 'About Us'
+
+.container
+  .row.justify-content-center
+    .col-10
+      .jumbotron
+        h3 About Us
+  .row.justify-content-center
+    .col-sm-7.col-10
+      h6 Who we are:
+      p.ml-4
+        | We're a small European team of talented developers and designers who love watching videos online.
+      h6 Why we built this website:
+      p.ml-4
+        | Originally a college side project, we built this site because we were frustrated with other video downloaders that didn't work or were very slow.
+      p.ml-4
+        | We wanted a better way to save our favorite online videos and share them with friends and family.
+      h6 Why do we charge for membership:
+      p.ml-4
+        | The minimal membership fee helps us pay server costs so we can continue to operate GetAudioFromVideo.com.
+      p.ml-4
+        | We hope you enjoy our website. Please&nbsp;
+        = link_to "contact us", new_contact_form_path, class: "font-italic font-weight-bold"
+        | &nbsp;at anytime for help or comments!
+    .col-sm-3.col-10
+      .card
+        .card-body.text-center
+          figure.figure.mx-2
+            = image_tag("sachit.png", class: "figure-img img-fluid rounded-circle", size: 75)
+            figcaption.figure-caption.text-center
+              | Sachit - operations
+          figure.figure.mx-2
+            = image_tag("peter.png", class: "figure-img img-fluid rounded-circle", size: 75)
+            figcaption.figure-caption.text-center
+              | Peter - customer service
+          figure.figure.mx-2
+            = image_tag("yoshi.png", class: "figure-img img-fluid rounded-circle", size: 75)
+            figcaption.figure-caption.text-center
+              | Yoshi - technology

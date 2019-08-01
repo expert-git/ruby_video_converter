@@ -1,0 +1,67 @@
+$font-size-xs: 0.60rem;
+$font-size-sm: 0.70rem;
+$font-size-md: 0.80rem;
+$font-size-lg: 0.85rem;
+$font-size-xl: 0.95rem;
+// Extra small devices (portrait phones, less than 576px)
+// No media query since this is the default in Bootstrap
+@include media-breakpoint-up(xs) {
+  html {
+    font-size: $font-size-xs;
+  }
+  .jumbotron {
+    .homepage-h1 {
+      margin-top: 1rem;
+    }
+  }
+  #rc-imageselect,
+  .g-recaptcha {
+    transform: scale(0.87);
+    -webkit-transform: scale(0.87);
+    transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;
+  }
+}
+// Small devices (landscape phones, 576px and up)
+@include media-breakpoint-up(sm) {
+  html {
+    font-size: $font-size-sm;
+  }
+  .jumbotron {
+    .homepage-h1 {
+      margin-top: 0;
+    }
+  }
+}
+// Medium devices (tablets, 768px and up)
+@include media-breakpoint-up(md) {
+  html {
+    font-size: $font-size-md;
+  }
+  #rc-imageselect,
+  .g-recaptcha {
+    transform: scale(0.86);
+    -webkit-transform: scale(0.86);
+    transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;
+  }
+}
+// Large devices (desktops, 992px and up)
+@include media-breakpoint-up(lg) {
+  html {
+    font-size: $font-size-lg;
+  }
+  #rc-imageselect,
+  .g-recaptcha {
+    transform: scale(0.91);
+    -webkit-transform: scale(0.91);
+    transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;
+  }
+}
+// Extra large devices (large desktops, 1200px and up)
+@include media-breakpoint-up(xl) {
+  html {
+    font-size: $font-size-xl;
+  }
+}

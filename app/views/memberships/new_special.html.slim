@@ -1,0 +1,138 @@
+- title 'Create account'
+
+.container
+  .row.text-center.mt-2
+    .col
+      h2
+        strong
+          | 1 day free trial
+  .row.text-center
+    .col
+      h5.text-muted
+        / | Unlimited downloads.
+        | You won't be billed for 24 hours, guaranteed.
+        / | &nbsp;&nbsp;Signup in 20 seconds.&nbsp;&nbsp;Cancel at any time.
+  .row.justify-content-center.text-center.mt-2
+    .col-6
+      .alert.alert-danger
+        strong
+          | Special offer: 50% off memberships forever!
+  .row.text-center.mt-2.mb-3
+    .col
+      / h4 Select duration:
+      <i class='fa fa-hand-o-right fa-lg'></i>&nbsp;&nbsp;&nbsp;
+      .btn-group.btn-group-toggle data-toggle="buttons"
+        label.btn.btn-primary.active.cursor-pointer.annual-plan
+          input#annual-plan-button autocomplete="off" name="membership-radio-button" value="annual-radio-button" type="radio" onclick="render_annual_price_and_button();"
+          | &nbsp;&nbsp;Annual
+          | &nbsp;&nbsp;(20% discount)&nbsp;&nbsp;
+        label.btn.btn-primary.cursor-pointer.monthly-plan
+          input#monthly-plan-button autocomplete="off" name="membership-radio-button" value="monthly-radio-button" type="radio" onclick="render_monthåly_price_and_button();"
+          | &nbsp;&nbsp;Monthly&nbsp;&nbsp;
+  .row.justify-content-center.mt-2
+    .col-lg-7
+      .card-deck
+        .card.mb-4.shadow
+          .card-header
+            h4.my-0.text-center Member
+          .card-body.mx-auto
+            #membership-price-annual.mb-2
+              h1.card-title.text-center.mb-0
+                | $4 / month
+              .text-muted.text-center
+                | (paid annually)
+            #membership-price-monthly.mb-2
+              h1.card-title.text-center.mb-0
+                | $5 / month
+              .text-muted.text-center
+                | &nbsp;
+            ul.list-unstyled.mb-4
+              li.line-height-2
+                i.fa.fa-lg.fa-check.text-success &nbsp;
+                | Unlimited downloads
+              li.line-height-2
+                i.fa.fa-lg.fa-check.text-success &nbsp;
+                | Unlimited duration videos
+              li.line-height-2
+                i.fa.fa-lg.fa-check.text-success &nbsp;
+                | Skip download delay
+              li.line-height-2
+                i.fa.fa-lg.fa-check.text-success &nbsp;
+                | View download history
+              / li.line-height-2
+              /   i.fa.fa-lg.fa-check.text-success &nbsp;
+              /   | Skip download queue
+              / li.line-height-2
+              /   i.fa.fa-lg.fa-check.text-success &nbsp;
+              /   | Request new features
+              li.line-height-2
+                i.fa.fa-lg.fa-check.text-success &nbsp;
+                | Tech support for help
+            - if current_member
+              - membership = Membership.find_by(stripe_id: "annual_special")
+              - if membership
+                #membership-signup-button-annual
+                  = render 'payola/subscriptions/checkout',
+                    plan: membership,
+                    email: "#{current_member.email}",
+                    name: "Annual membership",
+                    description: "$#{membership.price_in_dollars/12} / month ($#{membership.price_in_dollars} paid annually)",
+                    button_text: "Start free trial&nbsp;&nbsp;<i class='fa fa-arrow-circle-right'></i>".html_safe,
+                    button_class: "btn btn-lg btn-success cursor-pointer"
+                    / plan_image_path: "#{image_path('stripe-logo-black.png')}"
+              - membership = Membership.find_by(stripe_id: "monthly_special")
+              - if membership
+                #membership-signup-button-monthly
+                  = render 'payola/subscriptions/checkout',
+                    plan: membership,
+                    email: "#{current_member.email}",
+                    name: "Monthly membership",
+                    description: "$#{membership.price_in_dollars} / #{membership.interval}",
+                    button_text: "Start free trial&nbsp;&nbsp;<i class='fa fa-arrow-circle-right'></i>".html_safe,
+                    button_class: "btn btn-lg btn-success cursor-pointer"
+                    / plan_image_path: "#{image_path('stripe-logo-black.png')}"
+            - else
+              button type="button" class="btn btn-lg btn-success" data-toggle="modal" data-target="#signupModalCenter" Start free trial&nbsp;&nbsp;<i class='fa fa-arrow-circle-right'></i>
+              = render partial: 'layouts/modals.html.slim'
+        .card.mb-4.shadow
+          .card-header
+            h4.my-0.text-center Guest
+          .card-body.mx-auto
+            #free-membership-price.mb-2
+              h1.card-title.text-center.mb-0
+                | Free
+              .text-muted.text-center
+                | &nbsp;
+            ul.list-unstyled.mb-4
+              li.line-height-2
+                i.fa.fa-lg.fa-times.text-danger &nbsp;
+                | 5 downloads
+              li.line-height-2
+                i.fa.fa-lg.fa-times.text-danger &nbsp;
+                | Only videos less than 6 minutes
+              li.line-height-2
+                i.fa.fa-lg.fa-times.text-danger &nbsp;
+                | 30 second download delay
+              li.line-height-2
+                i.fa.fa-lg.fa-times.text-danger &nbsp;
+                | No download history
+              / li.line-height-2
+              /   i.fa.fa-lg.fa-times.text-danger &nbsp;
+              /   | Behind members in download queue
+              / li
+              /   i.fa.fa-lg.fa-times.text-danger &nbsp;
+              /   | Can't request new features
+              li.line-height-2
+                i.fa.fa-lg.fa-times.text-danger &nbsp;
+                | No tech support
+            #free-membership-price-contact-us-link
+              = link_to "Need help? Contact us", new_contact_form_path
+  .row.justify-content-center.margin-bottom-negative-3rem
+    .col-4.text-center
+      / = image_tag("powered-by-stripe-dark.png", class: "w-25")
+      = image_tag("powered-by-stripe-gray.png", class: "w-25")
+      / = image_tag("powered-by-stripe-outline-gray.png", class: "w-25")
+    .col-4.text-center
+      .svg-container
+        .svg-content
+          = image_tag("ssl.svg", class: "img-fluid w-50")

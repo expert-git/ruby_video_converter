@@ -1,0 +1,32 @@
+- if current_page?(root_path)
+  br
+  .jumbotron.as-seen-on.mb-0.pt-4
+    .row
+      .col
+        h4.text-center
+          | As seen on
+    .row
+      .container
+        hr
+    .row.justify-content-center
+      .col-10
+        = image_tag("as-seen-on.png", class: "img-fluid")
+- else
+  br
+footer.footer.bg-dark.text-white
+  .container
+    br
+    / nav.nav.nav-pills.float-right
+      = link_to "<i class='fa fa-arrow-circle-up'></i>&nbsp;Back to top".html_safe, root_path, class: "nav-link"
+    nav#footer-nav.nav.nav-pills.justify-content-between
+      = link_to "About", about_path, class: "nav-link"
+      = link_to "Pricing", new_membership_path, class: "nav-link"
+      = link_to "Contact", new_contact_form_path, class: "nav-link"
+      / = link_to "Blog", blog_path, class: "nav-link"
+      = link_to "FAQ", faq_path, class: "nav-link"
+      = link_to "Terms of service", terms_path, class: "nav-link"
+      = link_to "Privacy policy", privacy_path, class: "nav-link"
+      = link_to "DMCA compliance", dmca_path, class: "nav-link"
+    br
+    p.text-center
+      | Copyright 2019 &copy; GetAudioFromVideo.com

@@ -1,0 +1,6 @@
+<% unless @message.blank? %>
+  $(".justify-content-end").html("<%= j render partial: 'layouts/flash_message', locals: {message_type: 'error', message: @message} %>");
+<% end %>
+<% unless policy(@converted_video).allow_download? %>
+  $('#signupModalCenter').modal('show');
+<% end %>

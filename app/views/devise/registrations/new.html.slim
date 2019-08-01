@@ -1,0 +1,42 @@
+- title 'Signup'
+
+.col-sm-6.col-md-5.col-lg-4.mx-auto
+  .card
+    h3.card-header.bg-dark.text-white.text-center
+      | Create account
+      / = resource_name.to_s.humanize
+    .card-body
+      .row.justify-content-center
+        .col-sm-6.col-md-8
+          = link_to "<span class='fa fa-facebook'></span> Facebook signup".html_safe, member_facebook_omniauth_authorize_path, method: :post, class: "btn btn-block btn-social btn-facebook"
+          = link_to "<span class='fa fa-google'></span> Google signup".html_safe, member_google_oauth2_omniauth_authorize_path, method: :post, class: "btn btn-block btn-social btn-google"
+      .row.justify-content-between.my-2
+        .col
+          hr
+        .col-2.text-center
+         | or
+        .col
+          hr
+      .card-title
+        = form_for(resource, as: resource_name, url: registration_path(resource_name)) do |f|
+          .card-text
+            = devise_error_messages_helper!
+            .form-group
+              = f.label :email
+              = f.email_field :email, autofocus: true, class: "form-control", required: true
+            .form-group
+              = f.label :password
+              - if @minimum_password_length
+                small
+                  i.text-muted
+                    |  (
+                    = @minimum_password_length
+                    |  characters minimum)
+              = f.password_field :password, autocomplete: "off", class: "form-control", required: true
+            .form-group
+              = f.label :password_confirmation
+              = f.password_field :password_confirmation, autocomplete: "off", class: "form-control", required: true
+            = recaptcha_tags
+            .actions
+              = f.submit "Sign up", class: "btn btn-block btn-success"
+              = render "devise/shared/links", login_modal: false

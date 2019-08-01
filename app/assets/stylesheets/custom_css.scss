@@ -1,0 +1,86 @@
+.border-blue {
+  border: 1px solid blue;
+}
+.payola-subscription-checkout-button-text {
+  min-height: 0 !important;
+}
+.payola-error-target {
+  font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  background-color: #f2dede;
+  border-color: #ebcccc;
+  color: #a94442;
+  .alert-link {
+    color: #843534;
+  }
+}
+.svg-container {
+  display: inline-block;
+  position: relative;
+  width: 70%;
+  padding-bottom: 30%;
+  vertical-align: middle;
+  overflow: hidden;
+  .svg-content {
+    display: inline-block;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+}
+#countdown-container {
+  background-color: #f7f7f9;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+  #countdown-timer {
+    // display: inline-block;
+    .time-box {
+      padding: 0.75rem;
+      background: #f7f7f9;
+      display: inline-block;
+    }
+    .time {
+      color: #fff;
+      padding: 1rem;
+      font-size: 2rem;
+      border-radius: 3px;
+      background: #000000;
+      display: inline-block;
+      min-width: 5rem;
+    }
+    .time-label {
+    }
+  }
+}
+.cd-top.cd-is-visible {
+  /* the button becomes visible */
+  visibility: visible;
+  opacity: 1;
+}
+.cd-top.cd-fade-out {
+  /* if the user keeps scrolling down, the button is out of focus and becomes less visible */
+  opacity: 0.5;
+}
+.modal-btn {
+  background-color: transparent;
+  border: none;
+  color: #007bff;
+}
+button.modal-btn:focus{
+  outline: none;
+}
+// Center align recaptcha
+// .g-recaptcha {
+// margin    : 19px auto !important;
+// width     : auto !important;
+// height    : auto !important;
+// text-align: -webkit-center;
+// text-align: -moz-center;
+// text-align: -o-center;
+// text-align: -ms-center;
+// }

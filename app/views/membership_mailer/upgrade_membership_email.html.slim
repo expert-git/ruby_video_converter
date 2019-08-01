@@ -1,0 +1,15 @@
+p 
+  | Your membership to 
+  a href="https://getaudiofromvideo.com" GetAudioFromVideo.com
+  |  has been upgraded.
+p 
+  | Here is your new membership details:
+ul
+  li 
+    | Subscription: 
+    = @subscription.plan.name
+  li 
+    | Amount charged today: 
+    = amount_helper(@difference)
+p
+  | If you have any questions, please contact us at: support@getaudiofromvideo.com  

@@ -1,0 +1,133 @@
+div class="modal fade" id="loginModalCenter" tabindex="-1" role="dialog" aria-labelledby="loginModalCenterTitle" aria-hidden="true"
+  div class="modal-dialog" role="document"
+    div class="modal-content"
+      div class="modal-header"
+        h5 class="modal-title" id="loginModalLongTitle" Login
+        button type="button" class="close" data-dismiss="modal" aria-label="Close"
+          span aria-hidden="true" &times;
+      div class="modal-body"
+        / - title 'Login'
+        .row.justify-content-center
+          .col-sm-6.col-md-8
+            = link_to "<span class='fa fa-facebook'></span> Facebook login".html_safe, member_facebook_omniauth_authorize_path, method: :post, class: "btn btn-block btn-social btn-facebook"
+            = link_to "<span class='fa fa-google'></span> Google login".html_safe, member_google_oauth2_omniauth_authorize_path, method: :post, class: "btn btn-block btn-social btn-google"
+        .row.justify-content-between.my-2
+          .col
+            hr
+          .col-2.text-center
+            | or
+          .col
+            hr
+        = form_for(resource, as: resource_name, url: session_path(resource_name), html: {id: 'modal_signin_member'}) do |f|
+          .form-group
+            .float-right
+              / | Don't have an account?
+              button type="button" class="modal-btn cursor-pointer" data-toggle="modal" data-target="#signupModalCenter" Need to create an account?
+            = f.label :email
+            = f.email_field :email, autofocus: true, class: "form-control", required: true
+          .form-group
+            = f.label :password
+            = f.password_field :password, autocomplete: "off", class: "form-control", required: true
+          = recaptcha_tags
+          - if devise_mapping.rememberable?
+            .form-group
+              - if devise_mapping.recoverable? && controller_name != 'passwords' && controller_name != 'registrations'
+                button type="button" class="modal-btn float-right float-link cursor-pointer" data-toggle="modal" data-target="#forgotPasswordModal" Forgot password?
+              .form-check
+                = f.check_box :remember_me, class: "form-check-input"
+                = f.label :remember_me, class: "form-check-label"
+          .actions
+            = f.submit "Login", class: "btn btn-block btn-success"
+            = render "devise/shared/links", login_modal: true
+          br
+
+div class="modal fade" id="signupModalCenter" tabindex="-1" role="dialog" aria-labelledby="signupModalCenterTitle" aria-hidden="true"
+  div class="modal-dialog" role="document"
+    div class="modal-content"
+      div class="modal-header"
+        - modalTitle = ( (request.url.match('/videos') || request.url.match('/videos/download')) && request.url.exclude?('/videos/search?terms=') ) ? 'Account required, please signup' : 'Create a new account'
+        h5 class="modal-title" id="signupModalLongTitle" = modalTitle
+        button type="button" class="close" data-dismiss="modal" aria-label="Close"
+          span aria-hidden="true" &times;
+      div class="modal-body"
+        / - title 'Signup'
+        - if ( (request.url.match('/videos') || request.url.match('/videos/download')) && request.url.exclude?('/videos/search?terms='))
+          .row
+            .col
+              .alert.alert-danger role="alert"
+                |  Create a FREE account or login to download your video.
+        - elsif request.url.match('/membership/new')
+          .row
+            .col
+              .alert.alert-danger role="alert"
+                | Please create an account or login first.
+        .row.justify-content-center
+          .col-sm-6.col-md-8
+            = link_to "<span class='fa fa-facebook'></span> Facebook signup".html_safe, member_facebook_omniauth_authorize_path, method: :post, class: "btn btn-block btn-social btn-facebook"
+            = link_to "<span class='fa fa-google'></span> Google signup".html_safe, member_google_oauth2_omniauth_authorize_path, method: :post, class: "btn btn-block btn-social btn-google"
+        .row.justify-content-between.my-2
+          .col
+            hr
+          .col-2.text-center
+            | or
+          .col
+            hr
+        = form_for(resource, as: resource_name, url: registration_path(resource_name), html: {id: 'modal_signup_member'}) do |f|
+          .form-group
+            = f.label :email
+            = f.email_field :email, autofocus: true, class: "form-control", required: true
+          .form-group
+            = f.label :password
+            - if @minimum_password_length
+              small
+                i.text-muted
+                  |  (
+                  = @minimum_password_length
+                  |  characters minimum)
+            = f.password_field :password, autocomplete: "off", class: "form-control", required: true
+          .form-group
+            = f.label :password_confirmation
+            = f.password_field :password_confirmation, autocomplete: "off", class: "form-control", required: true
+          = recaptcha_tags
+          .actions
+            = f.submit "Sign up", class: "btn btn-block btn-success"
+            = render "devise/shared/links", login_modal: false
+          br
+
+div class="modal fade" id="forgotPasswordModal" tabindex="-1" role="dialog" aria-labelledby="forgotPasswordModalTitle" aria-hidden="true"
+  div class="modal-dialog" role="document"
+    div class="modal-content"
+      div class="modal-header"
+        h5 class="modal-title" id="forgotPasswordModalLongTitle" Forgot your password?
+        button type="button" class="close" data-dismiss="modal" aria-label="Close"
+          span aria-hidden="true" &times;
+      div class="modal-body"
+        = form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post, id: 'modal_forgot_password'}) do |f|
+          = devise_error_messages_helper!
+          .form-group
+            = f.label :email
+            = f.email_field :email, autofocus: true, class: "form-control", required: true
+          .actions
+            = f.submit "Send me reset password instructions", class: "btn btn-block btn-success"
+            / = render "devise/shared/links"
+            / = render "devise/shared/cancel_button"
+            br
+
+div class="modal fade" id="resendConfirmModal" tabindex="-1" role="dialog" aria-labelledby="resendConfirmModalTitle" aria-hidden="true"
+  div class="modal-dialog" role="document"
+    div class="modal-content"
+      div class="modal-header"
+        h5 class="modal-title" id="resendConfirmModalLongTitle" Didn't receive confirmation email?
+        button type="button" class="close" data-dismiss="modal" aria-label="Close"
+          span aria-hidden="true" &times;
+      div class="modal-body"
+        = form_for(resource, as: resource_name, url: confirmation_path(resource_name), html: { method: :post, id: 'modal_resend_confirmation'}) do |f|
+          = devise_error_messages_helper!
+          .form-group
+            = f.label :email
+            = f.email_field :email, autofocus: true, value: (resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email), class: "form-control", required: true
+          .actions
+            = f.submit "Resend confirmation email", class: "btn btn-block btn-success"
+            / = render "devise/shared/links"
+            / = render "devise/shared/cancel_button"
+            br

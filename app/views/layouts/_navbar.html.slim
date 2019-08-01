@@ -1,0 +1,52 @@
+nav.navbar.navbar-expand-md.navbar-dark.bg-dark.fixed-top.justify-content-between
+  a.navbar-brand[href=(root_path)]
+    strong
+      .d-none.d-sm-inline
+        | GetAudioFromVideo.com
+      .d-inline.d-sm-none
+        | GAFV
+  - unless current_page?(root_path)
+    span#navbar-search.mx-auto
+      = form_tag(videos_search_path, method: "get", enforce_utf8: false, class: "form-inline") do
+        .input-group
+          = text_field_tag :terms, params[:terms], placeholder: "Enter search terms", class: "navbar-search-width-12 border-1px form-control", required: true
+          .input-group-btn.input-group-append
+            / button.btn.btn-secondary.dropdown-toggle.border-right-0 aria-expanded="false" aria-haspopup="true" data-toggle="dropdown" type="button" class="cursor-pointer"
+            button.btn.btn-secondary.border-right-0.cursor-default
+              | Youtube
+            / .dropdown-menu.dropdown-menu-right.disabled
+              / a.dropdown-item Vimeo
+              / a.dropdown-item Dailymotion
+          .input-group-btn.input-group-append
+            = submit_tag "Search", :name => nil, class: "btn btn-primary"
+  button.navbar-toggler.cursor-pointer[type="button" data-toggle="collapse" data-target="#navbar-gafv" aria-controls="navbar-gafv" aria-expanded="false" aria-label="Toggle navigation"]
+    span.navbar-toggler-icon
+  #navbar-gafv.collapse.navbar-collapse.flew-grow-quarter-default
+    ul.navbar-nav.ml-auto
+      - unless current_member
+        li.nav-item
+          button type="button" class="nav-link modal-btn cursor-pointer" data-toggle="modal" data-target="#loginModalCenter" Login
+          = render partial: 'layouts/modals.html.slim'
+        li.nav-item
+          = link_to "Create Account".html_safe, new_membership_path, class: "btn btn-outline-danger"
+      - else
+        / = navbar_member_badge_helper(current_member)
+        - if current_member.subscriptions.active.any?
+          li.nav-item
+            = link_to "<i class='fa fa-user-circle'></i> Member".html_safe, subscriptions_path, class: "btn btn-success"
+        - else
+          li.nav-item
+            = link_to "<i class='fa fa-exclamation-triangle'></i> Guest".html_safe, new_membership_path, class: "btn btn-danger"
+        li.nav-item.dropdown
+          a#dropdown-myaccount.nav-link.dropdown-toggle[href="#" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"]
+            = image_tag member_image_helper(current_member), size: 20, class: "rounded-circle"
+            | &nbsp;&nbsp;
+            = current_member.email
+          .dropdown-menu.dropdown-menu-right[aria-labelledby="dropdown-myaccount"]
+            / a.dropdown-item[href="#"]
+            = link_to "<i class='fa fa-user'></i> Profile".html_safe, edit_member_registration_path, class: "dropdown-item"
+            = link_to "<i class='fa fa-usd'></i> Membership".html_safe, subscriptions_path, class: "dropdown-item"
+            = link_to "<i class='fa fa-download'></i> Download history".html_safe, download_history_path, class: "dropdown-item"
+            .dropdown-divider
+            = link_to "<i class='fa fa-sign-out'></i> Logout".html_safe, "javascript:void(0)",
+              class: "dropdown-item sweet-alert", method: :delete, data: {message: "Are you sure you want to logout?", link: "/logout"}

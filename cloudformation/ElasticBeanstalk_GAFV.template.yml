@@ -1,0 +1,2442 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cloudformation template for setting up the Rails Web/Worker app on Elasticbeanstalk
+Parameters:
+  AppName:
+    Description: App to setup
+    Type: String
+  AppShortName:
+    Description: App short name
+    Type: String
+  AppEnvironmentName:
+    Description: Environment to setup
+    Type: String
+  AppRoute53ZoneId:
+    Description: Route53 hosted zone ID
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the AWS Elastic
+      Beanstalk instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  BastionKeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the Bastion instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  VpcId:
+    Description: VPC in which to create the instances
+    Type: String
+  VpcSubnetIds:
+    Description: VPC Subnets in which to create the instances
+    Type: String
+  VpcPublicSubnetIds:
+    Description: VPC Public Subnets
+    Type: String
+  ELBSSLSertificateId:
+    Description: LoadBalancer SSL certificate ID
+    Type: String
+  DBName:
+    Description: Database Name
+    Type: String
+  DBAllocatedStorage:
+    Description: Database AllocatedStorage
+    Type: String
+  DBUser:
+    Description: Database User
+    Type: String
+  DBPassword:
+    Description: Database Password
+    Type: String
+    NoEcho: true
+  DBSubnetGroupName:
+    Description: Database Subnet Group
+    Type: String
+  RedisSubnetGroupName:
+    Description: Redis subnet Group
+    Type: String
+  EnvAwsAccessKeyId:
+    NoEcho: true
+    Type: String
+  EnvAwsSecretAccessKey:
+    NoEcho: true
+    Type: String
+  EnvAwsRegion:
+    Type: String
+  EnvDeviseSecretKey:
+    Type: String
+  EnvEmailNoReply:
+    Type: String
+  EnvEmailSupport:
+    Type: String
+  EnvFacebookAppId:
+    Type: String
+  EnvFacebookAppSecret:
+    Type: String
+  EnvForestAuthSecret:
+    Type: String
+  EnvForestEnvSecret:
+    Type: String
+  EnvGoogleClientId:
+    Type: String
+  EnvGoogleClientSecret:
+    Type: String
+  EnvGuestDelayCountdownSeconds:
+    Type: String
+  EnvGuestSkipDelayCountdownLimit:
+    Type: String
+  EnvGuestSkipSignupRequiredModalLimit:
+    Type: String
+  EnvGuestVideoConversionLimit:
+    Type: String
+  EnvGuestVideoDurationLimitMinutes:
+    Type: String
+  EnvHttpHost:
+    Type: String
+  EnvMailgunApiKey:
+    Type: String
+  EnvMailgunDomain:
+    Type: String
+  EnvNewRelicLicense:
+    Type: String
+  EnvRailsForceSsl:
+    Type: String
+  EnvRailsMaxThreads:
+    Type: String
+    Default: "32"
+  EnvRecaptchaSecretKey:
+    Type: String
+  EnvRecaptchaSiteKey:
+    Type: String
+  EnvRollbarAccessToken:
+    Type: String
+  EnvSecretKeyBase:
+    Type: String
+  EnvSitemapPing:
+    Type: String
+  EnvStripePublishableKey:
+    Type: String
+  EnvStripeSecretKey:
+    Type: String
+  EnvStripeSigningSecret:
+    Type: String
+  EnvVideoConvertingModalShowafterSeconds:
+    Type: String
+  EnvVideoWaitStartConversionSeconds:
+    Type: String
+  EnvVideoMaxDurationEveryoneSeconds:
+    Type: String
+  EnvYoutubeApiKey:
+    Type: String
+  EnvMailchimpApiKey:
+    Type: String
+  EnvMailchimpListId:
+    Type: String
+  EnvLcAll:
+    Type: String
+
+Mappings:
+  # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/concepts.platforms.html#concepts.platforms.ruby
+  EBPlatforms:
+    us-east-1:
+      # Ruby24: "arn:aws:elasticbeanstalk:us-east-1::platform/Puma with Ruby 2.4 running on 64bit Amazon Linux/2.8.6"
+      Ruby25: "arn:aws:elasticbeanstalk:us-east-1::platform/Puma with Ruby 2.5 running on 64bit Amazon Linux/2.9.0"
+  # https://docs.aws.amazon.com/general/latest/gr/rande.html#elb_region
+  Beanstalk2Route53HostedZoneId:
+    us-east-1:
+      HostedZoneId: "Z35SXDOTRQ7X7K"
+  AMIs:
+    AmazonLinux:
+      # amzn-ami-hvm-2017.09.1.20171120-x86_64-gp2
+      ImageId: "ami-55ef662f"
+  InstanceSizes:
+    staging:
+      Web: "t2.nano"
+      Worker: "t2.nano"
+      Postgres: "db.t2.micro"
+      Redis: "cache.t2.micro"
+      Bastion: "t2.nano"
+    production:
+      Web: "t2.small"
+      Worker: "t2.small"
+      Postgres: "db.t2.small"
+      Redis: "cache.t2.micro"
+      Bastion: "t2.nano"
+  RdsStorageEncryptionSupport:
+    "db.t2.micro":
+      Encrypted: false
+    "db.t2.nano":
+      Encrypted: false
+    "db.t2.small":
+      Encrypted: true
+    "db.t2.medium":
+      Encrypted: true
+    "db.t2.large":
+      Encrypted: true
+    "db.t2.xlarge":
+      Encrypted: true
+    "db.t2.2xlarge":
+      Encrypted: true
+  Scaling:
+    staging:
+      WebMin: 1
+      WebMax: 1
+      WorkerMin: 1
+      WorkerMax: 1
+    production:
+      WebMin: 1
+      WebMax: 2
+      WorkerMin: 2
+      WorkerMax: 4
+
+Conditions:
+  UseSsl:
+    Fn::Equals:
+    - Ref: EnvRailsForceSsl
+    - "true"
+
+Resources:
+  WebServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
+      - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+
+  WebServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: WebServerRole
+
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
+      - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+
+  WorkerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: WorkerRole
+
+  EBLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  EBLambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: WebServerRole
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Resource: "*"
+          Action:
+          - "lambda:InvokeFunction"
+          - "elasticbeanstalk:DescribeEnvironmentResources"
+          - "cloudformation:ListStackResources"
+          - "cloudformation:DescribeStacks"
+          - "autoscaling:DescribeAutoScalingGroups"
+      Roles:
+      - Ref: EBLambdaRole
+
+  BastionEC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  BastionEC2RolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: WebServerRole
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Resource: "*"
+          Action:
+          - "ec2:AssociateAddress"
+      Roles:
+      - Ref: BastionEC2Role
+  BastionEC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: BastionEC2Role
+
+  RailsApplication:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties:
+      ApplicationName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "rails-app"
+      Description:
+        Fn::Join:
+        - " "
+        - - "AWS Elastic Beanstalk"
+          - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "Rails Application"
+
+  # WebEnv24:
+  #   Type: AWS::ElasticBeanstalk::Environment
+  #   Properties:
+  #     Description:
+  #       Fn::Join:
+  #       - " "
+  #       - - Ref: AppName
+  #         - Ref: AppEnvironmentName
+  #         - "Web"
+  #     PlatformArn:
+  #       Fn::FindInMap:
+  #       - EBPlatforms
+  #       - Ref: "AWS::Region"
+  #       - Ruby24
+  #     ApplicationName:
+  #       Ref: RailsApplication
+  #     EnvironmentName:
+  #       Fn::Join:
+  #       - "-"
+  #       - - Ref: AppShortName
+  #         - Ref: AppEnvironmentName
+  #         - "web"
+  #     Tier:
+  #       Name: WebServer
+  #       Type: Standard
+  #     OptionSettings:
+  #     - Namespace: aws:ec2:vpc
+  #       OptionName: VPCId
+  #       Value:
+  #         Ref: VpcId
+  #     - Namespace: aws:ec2:vpc
+  #       OptionName: Subnets
+  #       Value:
+  #         Ref: VpcSubnetIds
+  #     - Namespace: aws:ec2:vpc
+  #       OptionName: ELBSubnets
+  #       Value:
+  #         Ref: VpcPublicSubnetIds
+
+  #     - Namespace: aws:autoscaling:asg
+  #       OptionName: MinSize
+  #       Value:
+  #         Fn::FindInMap:
+  #         - Scaling
+  #         - Ref: AppEnvironmentName
+  #         - WebMin
+  #     - Namespace: aws:autoscaling:asg
+  #       OptionName: MaxSize
+  #       Value:
+  #         Fn::FindInMap:
+  #         - Scaling
+  #         - Ref: AppEnvironmentName
+  #         - WebMax
+
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: EC2KeyName
+  #       Value:
+  #         Ref: KeyName
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: InstanceType
+  #       Value:
+  #         Fn::FindInMap:
+  #         - InstanceSizes
+  #         - Ref: AppEnvironmentName
+  #         - Web
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: SSHSourceRestriction
+  #       Value:
+  #         Fn::Join:
+  #         - ", "
+  #         - - "tcp"
+  #           - "22"
+  #           - "22"
+  #           - Ref: BastionSecurityGroup
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: SecurityGroups
+  #       Value:
+  #         Fn::GetAtt: [AppWebSecurityGroup, GroupId]
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: IamInstanceProfile
+  #       Value:
+  #         Ref: WebServerInstanceProfile
+
+  #     - Namespace: aws:elb:policies
+  #       OptionName: ConnectionDrainingEnabled
+  #       Value: "true"
+  #     - Namespace: aws:elb:policies
+  #       OptionName: ConnectionDrainingTimeout
+  #       Value: "20"
+  #     - Namespace: aws:elb:policies
+  #       OptionName: ConnectionSettingIdleTimeout
+  #       Value: "60"
+
+  #     - Namespace: aws:elb:listener:80
+  #       OptionName: InstancePort
+  #       Value: "90"
+  #     - Namespace: aws:elb:listener:80
+  #       OptionName: InstanceProtocol
+  #       Value: TCP
+  #     - Namespace: aws:elb:listener:80
+  #       OptionName: ListenerProtocol
+  #       Value: TCP
+
+  #     - Namespace: aws:elb:listener:443
+  #       OptionName: InstancePort
+  #       Value: "80"
+  #     - Namespace: aws:elb:listener:443
+  #       OptionName: InstanceProtocol
+  #       Value: TCP
+  #     - Namespace: aws:elb:listener:443
+  #       OptionName: ListenerProtocol
+  #       Value: SSL
+  #     - Namespace: aws:elb:listener:443
+  #       OptionName: SSLCertificateId
+  #       Value:
+  #         Ref: ELBSSLSertificateId
+
+  #     - Namespace: aws:elb:loadbalancer
+  #       OptionName: CrossZone
+  #       Value: "true"
+  #     - Namespace: aws:elb:loadbalancer
+  #       OptionName: SecurityGroups
+  #       Value:
+  #         Fn::GetAtt: [ELBSecurityGroup, GroupId]
+  #     - Namespace: aws:elb:loadbalancer
+  #       OptionName: ManagedSecurityGroup
+  #       Value:
+  #         Fn::GetAtt: [ELBSecurityGroup, GroupId]
+
+  #     # Enable ProxyProtocol
+  #     - Namespace: aws:elb:policies:proxyprotocol
+  #       OptionName: InstancePorts
+  #       Value: "80,90"
+  #     - Namespace: aws:elb:policies:proxyprotocol
+  #       OptionName: ProxyProtocol
+  #       Value: "true"
+
+  #     - Namespace: aws:elasticbeanstalk:healthreporting:system
+  #       OptionName: SystemType
+  #       Value: enhanced
+
+  #     # App environment vars
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ENVIRONMENT_TIER
+  #       Value: "web"
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_REDIS_URL
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - redis://
+  #           - Fn::GetAtt: [RedisInstance, RedisEndpoint.Address]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_CONVERSION_JOB_QUEUE
+  #       Value:
+  #         Fn::GetAtt: [WorkerQueue, QueueName]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ACTION_CABLE_URL
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - Fn::If:
+  #             - UseSsl
+  #             - https
+  #             - http
+  #           - "://"
+  #           - Ref: EnvHttpHost
+  #           - "/cable"
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_ACCESS_KEY_ID
+  #       Value:
+  #         Ref: EnvAwsAccessKeyId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_REGION
+  #       Value:
+  #         Ref: EnvAwsRegion
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_SECRET_ACCESS_KEY
+  #       Value:
+  #         Ref: EnvAwsSecretAccessKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_SECRET_ACCESS_KEY
+  #       Value:
+  #         Ref: EnvAwsSecretAccessKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_ENDPOINT
+  #       Value:
+  #         Fn::GetAtt: [PostgresDatabase, Endpoint.Address]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_PORT
+  #       Value:
+  #         Fn::GetAtt: [PostgresDatabase, Endpoint.Port]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_NAME
+  #       Value:
+  #         Ref: DBName
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_PASSWORD
+  #       Value:
+  #         Ref: DBPassword
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_USERNAME
+  #       Value:
+  #         Ref: DBUser
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_S3_MASTER_BUCKET_NAME
+  #       Value:
+  #         Ref: MasterS3Bucket
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_S3_CONVERTED_BUCKET_NAME
+  #       Value:
+  #         Ref: ConvertedS3Bucket
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ACTION_CABLE_CHANNEL_PREFIX
+  #       Value:
+  #         Fn::Join:
+  #         - "-"
+  #         - - Ref: AppShortName
+  #           - Ref: AppEnvironmentName
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: DEVISE_SECRET_KEY
+  #       Value:
+  #         Ref: EnvDeviseSecretKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: EMAIL_NO_REPLY
+  #       Value:
+  #         Ref: EnvEmailNoReply
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: EMAIL_SUPPORT
+  #       Value:
+  #         Ref: EnvEmailSupport
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_MAX_DURATION_EVERYONE_SECONDS
+  #       Value:
+  #         Ref: EnvVideoMaxDurationEveryoneSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FACEBOOK_APP_ID
+  #       Value:
+  #         Ref: EnvFacebookAppId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FACEBOOK_APP_SECRET
+  #       Value:
+  #         Ref: EnvFacebookAppSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FOREST_AUTH_SECRET
+  #       Value:
+  #         Ref: EnvForestAuthSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FOREST_ENV_SECRET
+  #       Value:
+  #         Ref: EnvForestEnvSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GOOGLE_CLIENT_ID
+  #       Value:
+  #         Ref: EnvGoogleClientId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GOOGLE_CLIENT_SECRET
+  #       Value:
+  #         Ref: EnvGoogleClientSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_DELAY_COUNTDOWN_SECONDS
+  #       Value:
+  #         Ref: EnvGuestDelayCountdownSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_SKIP_DELAY_COUNTDOWN_LIMIT
+  #       Value:
+  #         Ref: EnvGuestSkipDelayCountdownLimit
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_SKIP_SIGNUP_REQUIRED_MODAL_LIMIT
+  #       Value:
+  #         Ref: EnvGuestSkipSignupRequiredModalLimit
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_VIDEO_CONVERSION_LIMIT
+  #       Value:
+  #         Ref: EnvGuestVideoConversionLimit
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_VIDEO_DURATION_LIMIT_MINUTES
+  #       Value:
+  #         Ref: EnvGuestVideoDurationLimitMinutes
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: HTTP_HOST
+  #       Value:
+  #         Ref: EnvHttpHost
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: WEB_HOST
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - Fn::If:
+  #             - UseSsl
+  #             - https
+  #             - http
+  #           - "://"
+  #           - Ref: EnvHttpHost
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILGUN_API_KEY
+  #       Value:
+  #         Ref: EnvMailgunApiKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILGUN_DOMAIN
+  #       Value:
+  #         Ref: EnvMailgunDomain
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: NEW_RELIC_LICENSE
+  #       Value:
+  #         Ref: EnvNewRelicLicense
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RAILS_FORCE_SSL
+  #       Value:
+  #         Ref: EnvRailsForceSsl
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RAILS_MAX_THREADS
+  #       Value:
+  #         Ref: EnvRailsMaxThreads
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RECAPTCHA_SECRET_KEY
+  #       Value:
+  #         Ref: EnvRecaptchaSecretKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RECAPTCHA_SITE_KEY
+  #       Value:
+  #         Ref: EnvRecaptchaSiteKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ROLLBAR_ACCESS_TOKEN
+  #       Value:
+  #         Ref: EnvRollbarAccessToken
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ROLLBAR_ENV
+  #       Value:
+  #         Ref: AppEnvironmentName
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SECRET_KEY_BASE
+  #       Value:
+  #         Ref: EnvSecretKeyBase
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SITEMAP_S3_BUCKET
+  #       Value:
+  #         Ref: SitemapS3Bucket
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SITEMAP_URL
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - Fn::If:
+  #             - UseSsl
+  #             - https
+  #             - http
+  #           - "://"
+  #           - Ref: EnvHttpHost
+  #           - "/sitemap.xml.gz"
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SITEMAP_PING
+  #       Value:
+  #         Ref: EnvSitemapPing
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: STRIPE_PUBLISHABLE_KEY
+  #       Value:
+  #         Ref: EnvStripePublishableKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: STRIPE_SECRET_KEY
+  #       Value:
+  #         Ref: EnvStripeSecretKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: STRIPE_SIGNING_SECRET
+  #       Value:
+  #         Ref:   EnvStripeSigningSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_CONVERTING_MODAL_SHOWAFTER_SECONDS
+  #       Value:
+  #         Ref: EnvVideoConvertingModalShowafterSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_WAIT_START_CONVERSION_SECONDS
+  #       Value:
+  #         Ref: EnvVideoWaitStartConversionSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: YOUTUBE_API_KEY
+  #       Value:
+  #         Ref: EnvYoutubeApiKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILCHIMP_API_KEY
+  #       Value:
+  #         Ref: EnvMailchimpApiKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILCHIMP_LIST_ID
+  #       Value:
+  #         Ref: EnvMailchimpListId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: LC_ALL
+  #       Value:
+  #         Ref: EnvLcAll
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RUBY_VERSION
+  #       Value: "~> 2.4.5"
+
+  WebEnv25:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      Description:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "Web25"
+      PlatformArn:
+        Fn::FindInMap:
+        - EBPlatforms
+        - Ref: "AWS::Region"
+        - Ruby25
+      ApplicationName:
+        Ref: RailsApplication
+      EnvironmentName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "web25"
+      Tier:
+        Name: WebServer
+        Type: Standard
+      OptionSettings:
+      - Namespace: aws:ec2:vpc
+        OptionName: VPCId
+        Value:
+          Ref: VpcId
+      - Namespace: aws:ec2:vpc
+        OptionName: Subnets
+        Value:
+          Ref: VpcSubnetIds
+      - Namespace: aws:ec2:vpc
+        OptionName: ELBSubnets
+        Value:
+          Ref: VpcPublicSubnetIds
+
+      - Namespace: aws:autoscaling:asg
+        OptionName: MinSize
+        Value:
+          Fn::FindInMap:
+          - Scaling
+          - Ref: AppEnvironmentName
+          - WebMin
+      - Namespace: aws:autoscaling:asg
+        OptionName: MaxSize
+        Value:
+          Fn::FindInMap:
+          - Scaling
+          - Ref: AppEnvironmentName
+          - WebMax
+
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: EC2KeyName
+        Value:
+          Ref: KeyName
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: InstanceType
+        Value:
+          Fn::FindInMap:
+          - InstanceSizes
+          - Ref: AppEnvironmentName
+          - Web
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: SSHSourceRestriction
+        Value:
+          Fn::Join:
+          - ", "
+          - - "tcp"
+            - "22"
+            - "22"
+            - Ref: BastionSecurityGroup
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: SecurityGroups
+        Value:
+          Fn::GetAtt: [AppWebSecurityGroup, GroupId]
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: IamInstanceProfile
+        Value:
+          Ref: WebServerInstanceProfile
+
+      - Namespace: aws:elb:policies
+        OptionName: ConnectionDrainingEnabled
+        Value: "true"
+      - Namespace: aws:elb:policies
+        OptionName: ConnectionDrainingTimeout
+        Value: "20"
+      - Namespace: aws:elb:policies
+        OptionName: ConnectionSettingIdleTimeout
+        Value: "60"
+
+      - Namespace: aws:elb:listener:80
+        OptionName: InstancePort
+        Value: "90"
+      - Namespace: aws:elb:listener:80
+        OptionName: InstanceProtocol
+        Value: TCP
+      - Namespace: aws:elb:listener:80
+        OptionName: ListenerProtocol
+        Value: TCP
+
+      - Namespace: aws:elb:listener:443
+        OptionName: InstancePort
+        Value: "80"
+      - Namespace: aws:elb:listener:443
+        OptionName: InstanceProtocol
+        Value: TCP
+      - Namespace: aws:elb:listener:443
+        OptionName: ListenerProtocol
+        Value: SSL
+      - Namespace: aws:elb:listener:443
+        OptionName: SSLCertificateId
+        Value:
+          Ref: ELBSSLSertificateId
+
+      - Namespace: aws:elb:loadbalancer
+        OptionName: CrossZone
+        Value: "true"
+      - Namespace: aws:elb:loadbalancer
+        OptionName: SecurityGroups
+        Value:
+          Fn::GetAtt: [ELBSecurityGroup, GroupId]
+      - Namespace: aws:elb:loadbalancer
+        OptionName: ManagedSecurityGroup
+        Value:
+          Fn::GetAtt: [ELBSecurityGroup, GroupId]
+
+      # Enable ProxyProtocol
+      - Namespace: aws:elb:policies:proxyprotocol
+        OptionName: InstancePorts
+        Value: "80,90"
+      - Namespace: aws:elb:policies:proxyprotocol
+        OptionName: ProxyProtocol
+        Value: "true"
+
+      - Namespace: aws:elasticbeanstalk:healthreporting:system
+        OptionName: SystemType
+        Value: enhanced
+
+      # App environment vars
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ENVIRONMENT_TIER
+        Value: "web"
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_REDIS_URL
+        Value:
+          Fn::Join:
+          - ""
+          - - redis://
+            - Fn::GetAtt: [RedisInstance, RedisEndpoint.Address]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_CONVERSION_JOB_QUEUE
+        Value:
+          Fn::GetAtt: [WorkerQueue, QueueName]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ACTION_CABLE_URL
+        Value:
+          Fn::Join:
+          - ""
+          - - Fn::If:
+              - UseSsl
+              - https
+              - http
+            - "://"
+            - Ref: EnvHttpHost
+            - "/cable"
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_ACCESS_KEY_ID
+        Value:
+          Ref: EnvAwsAccessKeyId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_REGION
+        Value:
+          Ref: EnvAwsRegion
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_SECRET_ACCESS_KEY
+        Value:
+          Ref: EnvAwsSecretAccessKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_SECRET_ACCESS_KEY
+        Value:
+          Ref: EnvAwsSecretAccessKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_ENDPOINT
+        Value:
+          Fn::GetAtt: [PostgresDatabase, Endpoint.Address]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_PORT
+        Value:
+          Fn::GetAtt: [PostgresDatabase, Endpoint.Port]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_NAME
+        Value:
+          Ref: DBName
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_PASSWORD
+        Value:
+          Ref: DBPassword
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_USERNAME
+        Value:
+          Ref: DBUser
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_S3_MASTER_BUCKET_NAME
+        Value:
+          Ref: MasterS3Bucket
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_S3_CONVERTED_BUCKET_NAME
+        Value:
+          Ref: ConvertedS3Bucket
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ACTION_CABLE_CHANNEL_PREFIX
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: DEVISE_SECRET_KEY
+        Value:
+          Ref: EnvDeviseSecretKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: EMAIL_NO_REPLY
+        Value:
+          Ref: EnvEmailNoReply
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: EMAIL_SUPPORT
+        Value:
+          Ref: EnvEmailSupport
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_MAX_DURATION_EVERYONE_SECONDS
+        Value:
+          Ref: EnvVideoMaxDurationEveryoneSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FACEBOOK_APP_ID
+        Value:
+          Ref: EnvFacebookAppId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FACEBOOK_APP_SECRET
+        Value:
+          Ref: EnvFacebookAppSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FOREST_AUTH_SECRET
+        Value:
+          Ref: EnvForestAuthSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FOREST_ENV_SECRET
+        Value:
+          Ref: EnvForestEnvSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GOOGLE_CLIENT_ID
+        Value:
+          Ref: EnvGoogleClientId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GOOGLE_CLIENT_SECRET
+        Value:
+          Ref: EnvGoogleClientSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_DELAY_COUNTDOWN_SECONDS
+        Value:
+          Ref: EnvGuestDelayCountdownSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_SKIP_DELAY_COUNTDOWN_LIMIT
+        Value:
+          Ref: EnvGuestSkipDelayCountdownLimit
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_SKIP_SIGNUP_REQUIRED_MODAL_LIMIT
+        Value:
+          Ref: EnvGuestSkipSignupRequiredModalLimit
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_VIDEO_CONVERSION_LIMIT
+        Value:
+          Ref: EnvGuestVideoConversionLimit
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_VIDEO_DURATION_LIMIT_MINUTES
+        Value:
+          Ref: EnvGuestVideoDurationLimitMinutes
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: HTTP_HOST
+        Value:
+          Ref: EnvHttpHost
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: WEB_HOST
+        Value:
+          Fn::Join:
+          - ""
+          - - Fn::If:
+              - UseSsl
+              - https
+              - http
+            - "://"
+            - Ref: EnvHttpHost
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILGUN_API_KEY
+        Value:
+          Ref: EnvMailgunApiKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILGUN_DOMAIN
+        Value:
+          Ref: EnvMailgunDomain
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: NEW_RELIC_LICENSE
+        Value:
+          Ref: EnvNewRelicLicense
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RAILS_FORCE_SSL
+        Value:
+          Ref: EnvRailsForceSsl
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RAILS_MAX_THREADS
+        Value:
+          Ref: EnvRailsMaxThreads
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RECAPTCHA_SECRET_KEY
+        Value:
+          Ref: EnvRecaptchaSecretKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RECAPTCHA_SITE_KEY
+        Value:
+          Ref: EnvRecaptchaSiteKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ROLLBAR_ACCESS_TOKEN
+        Value:
+          Ref: EnvRollbarAccessToken
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ROLLBAR_ENV
+        Value:
+          Ref: AppEnvironmentName
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SECRET_KEY_BASE
+        Value:
+          Ref: EnvSecretKeyBase
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SITEMAP_S3_BUCKET
+        Value:
+          Ref: SitemapS3Bucket
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SITEMAP_URL
+        Value:
+          Fn::Join:
+          - ""
+          - - Fn::If:
+              - UseSsl
+              - https
+              - http
+            - "://"
+            - Ref: EnvHttpHost
+            - "/sitemap.xml.gz"
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SITEMAP_PING
+        Value:
+          Ref: EnvSitemapPing
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: STRIPE_PUBLISHABLE_KEY
+        Value:
+          Ref: EnvStripePublishableKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: STRIPE_SECRET_KEY
+        Value:
+          Ref: EnvStripeSecretKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: STRIPE_SIGNING_SECRET
+        Value:
+          Ref:   EnvStripeSigningSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_CONVERTING_MODAL_SHOWAFTER_SECONDS
+        Value:
+          Ref: EnvVideoConvertingModalShowafterSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_WAIT_START_CONVERSION_SECONDS
+        Value:
+          Ref: EnvVideoWaitStartConversionSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: YOUTUBE_API_KEY
+        Value:
+          Ref: EnvYoutubeApiKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILCHIMP_API_KEY
+        Value:
+          Ref: EnvMailchimpApiKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILCHIMP_LIST_ID
+        Value:
+          Ref: EnvMailchimpListId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: LC_ALL
+        Value:
+          Ref: EnvLcAll
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RUBY_VERSION
+        Value: "~> 2.5.3"
+
+  # WorkerEnv24:
+  #   Type: AWS::ElasticBeanstalk::Environment
+  #   Properties:
+  #     Description:
+  #       Fn::Join:
+  #       - " "
+  #       - - Ref: AppName
+  #         - Ref: AppEnvironmentName
+  #         - "Worker"
+  #     PlatformArn:
+  #       Fn::FindInMap:
+  #       - EBPlatforms
+  #       - Ref: "AWS::Region"
+  #       - Ruby24
+  #     ApplicationName:
+  #       Ref: RailsApplication
+  #     EnvironmentName:
+  #       Fn::Join:
+  #       - "-"
+  #       - - Ref: AppShortName
+  #         - Ref: AppEnvironmentName
+  #         - "worker"
+  #     Tier:
+  #       Name: Worker
+  #       Type: SQS/HTTP
+  #     OptionSettings:
+  #     - Namespace: aws:ec2:vpc
+  #       OptionName: VPCId
+  #       Value:
+  #         Ref: VpcId
+  #     - Namespace: aws:ec2:vpc
+  #       OptionName: Subnets
+  #       Value:
+  #         Ref: VpcSubnetIds
+  #     - Namespace: aws:ec2:vpc
+  #       OptionName: ELBSubnets
+  #       Value:
+  #         Ref: VpcPublicSubnetIds
+  #     - Namespace: aws:ec2:vpc
+  #       OptionName: AssociatePublicIpAddress
+  #       Value: "true"
+
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: EC2KeyName
+  #       Value:
+  #         Ref: KeyName
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: InstanceType
+  #       Value:
+  #         Fn::FindInMap:
+  #         - InstanceSizes
+  #         - Ref: AppEnvironmentName
+  #         - Worker
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: SSHSourceRestriction
+  #       Value:
+  #         Fn::Join:
+  #         - ", "
+  #         - - "tcp"
+  #           - "22"
+  #           - "22"
+  #           - Ref: BastionSecurityGroup
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: SecurityGroups
+  #       Value:
+  #         Fn::GetAtt: [AppWorkerSecurityGroup, GroupId]
+  #     - Namespace: aws:autoscaling:launchconfiguration
+  #       OptionName: IamInstanceProfile
+  #       Value:
+  #         Ref: WorkerInstanceProfile
+
+  #     - Namespace: aws:autoscaling:asg
+  #       OptionName: MinSize
+  #       Value:
+  #         Fn::FindInMap:
+  #         - Scaling
+  #         - Ref: AppEnvironmentName
+  #         - WorkerMin
+  #     - Namespace: aws:autoscaling:asg
+  #       OptionName: MaxSize
+  #       Value:
+  #         Fn::FindInMap:
+  #         - Scaling
+  #         - Ref: AppEnvironmentName
+  #         - WorkerMax
+
+  #     # Disable autoscaling on EB, autoscaling is done by SQS queue size
+  #     - Namespace: aws:autoscaling:trigger
+  #       OptionName: MeasureName
+  #       Value: CPUUtilization
+  #     - Namespace: aws:autoscaling:trigger
+  #       OptionName: Unit
+  #       Value: Percent
+  #     - Namespace: aws:autoscaling:trigger
+  #       OptionName: Unit
+  #       Value: Percent
+  #     - Namespace: aws:autoscaling:trigger
+  #       OptionName: UpperThreshold
+  #       Value: 3000
+  #     - Namespace: aws:autoscaling:trigger
+  #       OptionName: LowerThreshold
+  #       Value: 0
+  #     - Namespace: aws:autoscaling:trigger
+  #       OptionName: BreachDuration
+  #       Value: 600
+
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: WorkerQueueURL
+  #       Value:
+  #         Ref: WorkerQueue
+  #     - Namespace: aws:elasticbeanstalk:command
+  #       OptionName: Timeout
+  #       Value: 600
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: HttpConnections
+  #       Value: 2
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: HttpPath
+  #       Value: /
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: InactivityTimeout
+  #       Value: 600
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: VisibilityTimeout
+  #       Value: 601
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: ConnectTimeout
+  #       Value: 5
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: MaxRetries
+  #       Value: 10
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: MimeType
+  #       Value: application/json
+  #     - Namespace: aws:elasticbeanstalk:sqsd
+  #       OptionName: RetentionPeriod
+  #       Value: 345600
+
+  #     - Namespace: aws:elasticbeanstalk:healthreporting:system
+  #       OptionName: SystemType
+  #       Value: enhanced
+
+  #     # App Env vars
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ENVIRONMENT_TIER
+  #       Value: "worker"
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: PROCESS_ACTIVE_ELASTIC_JOBS
+  #       Value: true
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_REDIS_URL
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - redis://
+  #           - Fn::GetAtt: [RedisInstance, RedisEndpoint.Address]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_CONVERSION_JOB_QUEUE
+  #       Value:
+  #         Fn::GetAtt: [WorkerQueue, QueueName]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ACTION_CABLE_URL
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - Fn::If:
+  #             - UseSsl
+  #             - https
+  #             - http
+  #           - "://"
+  #           - Ref: EnvHttpHost
+  #           - "/cable"
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_ACCESS_KEY_ID
+  #       Value:
+  #         Ref: EnvAwsAccessKeyId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_REGION
+  #       Value:
+  #         Ref: EnvAwsRegion
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_SECRET_ACCESS_KEY
+  #       Value:
+  #         Ref: EnvAwsSecretAccessKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_SECRET_ACCESS_KEY
+  #       Value:
+  #         Ref: EnvAwsSecretAccessKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_ENDPOINT
+  #       Value:
+  #         Fn::GetAtt: [PostgresDatabase, Endpoint.Address]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_PORT
+  #       Value:
+  #         Fn::GetAtt: [PostgresDatabase, Endpoint.Port]
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_NAME
+  #       Value:
+  #         Ref: DBName
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_PASSWORD
+  #       Value:
+  #         Ref: DBPassword
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_RDS_DB_USERNAME
+  #       Value:
+  #         Ref: DBUser
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_S3_MASTER_BUCKET_NAME
+  #       Value:
+  #         Ref: MasterS3Bucket
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: AWS_S3_CONVERTED_BUCKET_NAME
+  #       Value:
+  #         Ref: ConvertedS3Bucket
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ACTION_CABLE_CHANNEL_PREFIX
+  #       Value:
+  #         Fn::Join:
+  #         - "-"
+  #         - - Ref: AppShortName
+  #           - Ref: AppEnvironmentName
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: DEVISE_SECRET_KEY
+  #       Value:
+  #         Ref: EnvDeviseSecretKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: EMAIL_NO_REPLY
+  #       Value:
+  #         Ref: EnvEmailNoReply
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: EMAIL_SUPPORT
+  #       Value:
+  #         Ref: EnvEmailSupport
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_MAX_DURATION_EVERYONE_SECONDS
+  #       Value:
+  #         Ref: EnvVideoMaxDurationEveryoneSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FACEBOOK_APP_ID
+  #       Value:
+  #         Ref: EnvFacebookAppId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FACEBOOK_APP_SECRET
+  #       Value:
+  #         Ref: EnvFacebookAppSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FOREST_AUTH_SECRET
+  #       Value:
+  #         Ref: EnvForestAuthSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: FOREST_ENV_SECRET
+  #       Value:
+  #         Ref: EnvForestEnvSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GOOGLE_CLIENT_ID
+  #       Value:
+  #         Ref: EnvGoogleClientId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GOOGLE_CLIENT_SECRET
+  #       Value:
+  #         Ref: EnvGoogleClientSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_DELAY_COUNTDOWN_SECONDS
+  #       Value:
+  #         Ref: EnvGuestDelayCountdownSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_SKIP_DELAY_COUNTDOWN_LIMIT
+  #       Value:
+  #         Ref: EnvGuestSkipDelayCountdownLimit
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_SKIP_SIGNUP_REQUIRED_MODAL_LIMIT
+  #       Value:
+  #         Ref: EnvGuestSkipSignupRequiredModalLimit
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_VIDEO_CONVERSION_LIMIT
+  #       Value:
+  #         Ref: EnvGuestVideoConversionLimit
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: GUEST_VIDEO_DURATION_LIMIT_MINUTES
+  #       Value:
+  #         Ref: EnvGuestVideoDurationLimitMinutes
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: HTTP_HOST
+  #       Value:
+  #         Ref: EnvHttpHost
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: WEB_HOST
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - Fn::If:
+  #             - UseSsl
+  #             - https
+  #             - http
+  #           - "://"
+  #           - Ref: EnvHttpHost
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILGUN_API_KEY
+  #       Value:
+  #         Ref: EnvMailgunApiKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILGUN_DOMAIN
+  #       Value:
+  #         Ref: EnvMailgunDomain
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: NEW_RELIC_LICENSE
+  #       Value:
+  #         Ref: EnvNewRelicLicense
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RAILS_FORCE_SSL
+  #       Value:
+  #         Ref: EnvRailsForceSsl
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RAILS_MAX_THREADS
+  #       Value:
+  #         Ref: EnvRailsMaxThreads
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RECAPTCHA_SECRET_KEY
+  #       Value:
+  #         Ref: EnvRecaptchaSecretKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RECAPTCHA_SITE_KEY
+  #       Value:
+  #         Ref: EnvRecaptchaSiteKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ROLLBAR_ACCESS_TOKEN
+  #       Value:
+  #         Ref: EnvRollbarAccessToken
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: ROLLBAR_ENV
+  #       Value:
+  #         Ref: AppEnvironmentName
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SECRET_KEY_BASE
+  #       Value:
+  #         Ref: EnvSecretKeyBase
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SITEMAP_S3_BUCKET
+  #       Value:
+  #         Ref: SitemapS3Bucket
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SITEMAP_URL
+  #       Value:
+  #         Fn::Join:
+  #         - ""
+  #         - - Fn::If:
+  #             - UseSsl
+  #             - https
+  #             - http
+  #           - "://"
+  #           - Ref: EnvHttpHost
+  #           - "/sitemap.xml.gz"
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: SITEMAP_PING
+  #       Value:
+  #         Ref: EnvSitemapPing
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: STRIPE_PUBLISHABLE_KEY
+  #       Value:
+  #         Ref: EnvStripePublishableKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: STRIPE_SECRET_KEY
+  #       Value:
+  #         Ref: EnvStripeSecretKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: STRIPE_SIGNING_SECRET
+  #       Value:
+  #         Ref:   EnvStripeSigningSecret
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_CONVERTING_MODAL_SHOWAFTER_SECONDS
+  #       Value:
+  #         Ref: EnvVideoConvertingModalShowafterSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: VIDEO_WAIT_START_CONVERSION_SECONDS
+  #       Value:
+  #         Ref: EnvVideoWaitStartConversionSeconds
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: YOUTUBE_API_KEY
+  #       Value:
+  #         Ref: EnvYoutubeApiKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILCHIMP_API_KEY
+  #       Value:
+  #         Ref: EnvMailchimpApiKey
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: MAILCHIMP_LIST_ID
+  #       Value:
+  #         Ref: EnvMailchimpListId
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: LC_ALL
+  #       Value:
+  #         Ref: EnvLcAll
+  #     - Namespace: aws:elasticbeanstalk:application:environment
+  #       OptionName: RUBY_VERSION
+  #       Value: "~> 2.4.5"
+
+  WorkerEnv25:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      Description:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "Worker25"
+      PlatformArn:
+        Fn::FindInMap:
+        - EBPlatforms
+        - Ref: "AWS::Region"
+        - Ruby25
+      ApplicationName:
+        Ref: RailsApplication
+      EnvironmentName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "worker25"
+      Tier:
+        Name: Worker
+        Type: SQS/HTTP
+      OptionSettings:
+      - Namespace: aws:ec2:vpc
+        OptionName: VPCId
+        Value:
+          Ref: VpcId
+      - Namespace: aws:ec2:vpc
+        OptionName: Subnets
+        Value:
+          Ref: VpcSubnetIds
+      - Namespace: aws:ec2:vpc
+        OptionName: ELBSubnets
+        Value:
+          Ref: VpcPublicSubnetIds
+      - Namespace: aws:ec2:vpc
+        OptionName: AssociatePublicIpAddress
+        Value: "true"
+
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: EC2KeyName
+        Value:
+          Ref: KeyName
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: InstanceType
+        Value:
+          Fn::FindInMap:
+          - InstanceSizes
+          - Ref: AppEnvironmentName
+          - Worker
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: SSHSourceRestriction
+        Value:
+          Fn::Join:
+          - ", "
+          - - "tcp"
+            - "22"
+            - "22"
+            - Ref: BastionSecurityGroup
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: SecurityGroups
+        Value:
+          Fn::GetAtt: [AppWorkerSecurityGroup, GroupId]
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: IamInstanceProfile
+        Value:
+          Ref: WorkerInstanceProfile
+
+      - Namespace: aws:autoscaling:asg
+        OptionName: MinSize
+        Value:
+          Fn::FindInMap:
+          - Scaling
+          - Ref: AppEnvironmentName
+          - WorkerMin
+      - Namespace: aws:autoscaling:asg
+        OptionName: MaxSize
+        Value:
+          Fn::FindInMap:
+          - Scaling
+          - Ref: AppEnvironmentName
+          - WorkerMax
+
+      # Disable autoscaling on EB, autoscaling is done by SQS queue size
+      - Namespace: aws:autoscaling:trigger
+        OptionName: MeasureName
+        Value: CPUUtilization
+      - Namespace: aws:autoscaling:trigger
+        OptionName: Unit
+        Value: Percent
+      - Namespace: aws:autoscaling:trigger
+        OptionName: Unit
+        Value: Percent
+      - Namespace: aws:autoscaling:trigger
+        OptionName: UpperThreshold
+        Value: 3000
+      - Namespace: aws:autoscaling:trigger
+        OptionName: LowerThreshold
+        Value: 0
+      - Namespace: aws:autoscaling:trigger
+        OptionName: BreachDuration
+        Value: 600
+
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: WorkerQueueURL
+        Value:
+          Ref: WorkerQueue
+      - Namespace: aws:elasticbeanstalk:command
+        OptionName: Timeout
+        Value: 600
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: HttpConnections
+        Value: 2
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: HttpPath
+        Value: /
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: InactivityTimeout
+        Value: 600
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: VisibilityTimeout
+        Value: 601
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: ConnectTimeout
+        Value: 5
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: MaxRetries
+        Value: 10
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: MimeType
+        Value: application/json
+      - Namespace: aws:elasticbeanstalk:sqsd
+        OptionName: RetentionPeriod
+        Value: 345600
+
+      - Namespace: aws:elasticbeanstalk:healthreporting:system
+        OptionName: SystemType
+        Value: enhanced
+
+      # App Env vars
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ENVIRONMENT_TIER
+        Value: "worker"
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: PROCESS_ACTIVE_ELASTIC_JOBS
+        Value: true
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_REDIS_URL
+        Value:
+          Fn::Join:
+          - ""
+          - - redis://
+            - Fn::GetAtt: [RedisInstance, RedisEndpoint.Address]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_CONVERSION_JOB_QUEUE
+        Value:
+          Fn::GetAtt: [WorkerQueue, QueueName]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ACTION_CABLE_URL
+        Value:
+          Fn::Join:
+          - ""
+          - - Fn::If:
+              - UseSsl
+              - https
+              - http
+            - "://"
+            - Ref: EnvHttpHost
+            - "/cable"
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_ACCESS_KEY_ID
+        Value:
+          Ref: EnvAwsAccessKeyId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_REGION
+        Value:
+          Ref: EnvAwsRegion
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_SECRET_ACCESS_KEY
+        Value:
+          Ref: EnvAwsSecretAccessKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_SECRET_ACCESS_KEY
+        Value:
+          Ref: EnvAwsSecretAccessKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_ENDPOINT
+        Value:
+          Fn::GetAtt: [PostgresDatabase, Endpoint.Address]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_PORT
+        Value:
+          Fn::GetAtt: [PostgresDatabase, Endpoint.Port]
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_NAME
+        Value:
+          Ref: DBName
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_PASSWORD
+        Value:
+          Ref: DBPassword
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_RDS_DB_USERNAME
+        Value:
+          Ref: DBUser
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_S3_MASTER_BUCKET_NAME
+        Value:
+          Ref: MasterS3Bucket
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_S3_CONVERTED_BUCKET_NAME
+        Value:
+          Ref: ConvertedS3Bucket
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ACTION_CABLE_CHANNEL_PREFIX
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: DEVISE_SECRET_KEY
+        Value:
+          Ref: EnvDeviseSecretKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: EMAIL_NO_REPLY
+        Value:
+          Ref: EnvEmailNoReply
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: EMAIL_SUPPORT
+        Value:
+          Ref: EnvEmailSupport
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_MAX_DURATION_EVERYONE_SECONDS
+        Value:
+          Ref: EnvVideoMaxDurationEveryoneSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FACEBOOK_APP_ID
+        Value:
+          Ref: EnvFacebookAppId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FACEBOOK_APP_SECRET
+        Value:
+          Ref: EnvFacebookAppSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FOREST_AUTH_SECRET
+        Value:
+          Ref: EnvForestAuthSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: FOREST_ENV_SECRET
+        Value:
+          Ref: EnvForestEnvSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GOOGLE_CLIENT_ID
+        Value:
+          Ref: EnvGoogleClientId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GOOGLE_CLIENT_SECRET
+        Value:
+          Ref: EnvGoogleClientSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_DELAY_COUNTDOWN_SECONDS
+        Value:
+          Ref: EnvGuestDelayCountdownSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_SKIP_DELAY_COUNTDOWN_LIMIT
+        Value:
+          Ref: EnvGuestSkipDelayCountdownLimit
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_SKIP_SIGNUP_REQUIRED_MODAL_LIMIT
+        Value:
+          Ref: EnvGuestSkipSignupRequiredModalLimit
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_VIDEO_CONVERSION_LIMIT
+        Value:
+          Ref: EnvGuestVideoConversionLimit
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: GUEST_VIDEO_DURATION_LIMIT_MINUTES
+        Value:
+          Ref: EnvGuestVideoDurationLimitMinutes
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: HTTP_HOST
+        Value:
+          Ref: EnvHttpHost
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: WEB_HOST
+        Value:
+          Fn::Join:
+          - ""
+          - - Fn::If:
+              - UseSsl
+              - https
+              - http
+            - "://"
+            - Ref: EnvHttpHost
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILGUN_API_KEY
+        Value:
+          Ref: EnvMailgunApiKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILGUN_DOMAIN
+        Value:
+          Ref: EnvMailgunDomain
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: NEW_RELIC_LICENSE
+        Value:
+          Ref: EnvNewRelicLicense
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RAILS_FORCE_SSL
+        Value:
+          Ref: EnvRailsForceSsl
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RAILS_MAX_THREADS
+        Value:
+          Ref: EnvRailsMaxThreads
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RECAPTCHA_SECRET_KEY
+        Value:
+          Ref: EnvRecaptchaSecretKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RECAPTCHA_SITE_KEY
+        Value:
+          Ref: EnvRecaptchaSiteKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ROLLBAR_ACCESS_TOKEN
+        Value:
+          Ref: EnvRollbarAccessToken
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: ROLLBAR_ENV
+        Value:
+          Ref: AppEnvironmentName
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SECRET_KEY_BASE
+        Value:
+          Ref: EnvSecretKeyBase
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SITEMAP_S3_BUCKET
+        Value:
+          Ref: SitemapS3Bucket
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SITEMAP_URL
+        Value:
+          Fn::Join:
+          - ""
+          - - Fn::If:
+              - UseSsl
+              - https
+              - http
+            - "://"
+            - Ref: EnvHttpHost
+            - "/sitemap.xml.gz"
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: SITEMAP_PING
+        Value:
+          Ref: EnvSitemapPing
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: STRIPE_PUBLISHABLE_KEY
+        Value:
+          Ref: EnvStripePublishableKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: STRIPE_SECRET_KEY
+        Value:
+          Ref: EnvStripeSecretKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: STRIPE_SIGNING_SECRET
+        Value:
+          Ref:   EnvStripeSigningSecret
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_CONVERTING_MODAL_SHOWAFTER_SECONDS
+        Value:
+          Ref: EnvVideoConvertingModalShowafterSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: VIDEO_WAIT_START_CONVERSION_SECONDS
+        Value:
+          Ref: EnvVideoWaitStartConversionSeconds
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: YOUTUBE_API_KEY
+        Value:
+          Ref: EnvYoutubeApiKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILCHIMP_API_KEY
+        Value:
+          Ref: EnvMailchimpApiKey
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: MAILCHIMP_LIST_ID
+        Value:
+          Ref: EnvMailchimpListId
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: LC_ALL
+        Value:
+          Ref: EnvLcAll
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: RUBY_VERSION
+        Value: "~> 2.5.3"
+
+  SqsScaleUpAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: "AWS/SQS"
+      Statistic: Minimum
+      Period: 60
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: QueueName
+        Value:
+          Fn::GetAtt: [WorkerQueue, QueueName]
+      EvaluationPeriods: 5
+      AlarmActions:
+      - Ref: ScaleUpPolicy
+  ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName:
+        Fn::GetAtt: [FetchWorkerEnvInfo, AutoScalingGroupName]
+      ScalingAdjustment: 1
+      Cooldown: 60
+
+  SqsScaleDownAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: "AWS/SQS"
+      Statistic: Minimum
+      Period: 60
+      Threshold: 5
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+      - Name: QueueName
+        Value:
+          Fn::GetAtt: [WorkerQueue, QueueName]
+      EvaluationPeriods: 5
+      AlarmActions:
+      - Ref: ScaleDownPolicy
+  ScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName:
+        Fn::GetAtt: [FetchWorkerEnvInfo, AutoScalingGroupName]
+      ScalingAdjustment: -1
+      Cooldown: 60
+
+  FetchWorkerEnvInfo:
+    Type: Custom::BeanstalkStack
+    Properties:
+      ServiceToken:
+        Fn::GetAtt: [FetchWorkerEnvInfoFn, Arn]
+      EnvironmentName:
+        Ref: WorkerEnv25
+  FetchWorkerEnvInfoFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile:
+          Fn::Sub: |
+            var response = require('cfn-response');
+            exports.handler = function(event, context) {
+                console.log('REQUEST RECEIVED:\\n', JSON.stringify(event));
+                if (event.RequestType == 'Delete') {
+                    response.send(event, context, response.SUCCESS);
+                    return;
+                }
+                var environmentName = event.ResourceProperties.EnvironmentName;
+                var responseData = {};
+                if (environmentName) {
+                  var aws = require('aws-sdk');
+                  var eb  = new aws.ElasticBeanstalk();
+                  eb.describeEnvironmentResources({EnvironmentName: environmentName}, function(err, data) {
+                    if (err) {
+                       responseData = { Error: 'describeEnvironmentResources call failed'  };
+                       console.log(responseData.Error + ':\\n', err);
+                       response.send(event, context, response.FAILED, responseData);
+                    } else {
+                       responseData = { AutoScalingGroupName: data.EnvironmentResources.AutoScalingGroups[0].Name };
+                       response.send(event, context, response.SUCCESS, responseData);
+                    }
+                  });
+               } else {
+                 responseData = {Error: 'Environment name not specified'};
+                 console.log(responseData.Error);
+                 response.send(event, context, response.FAILED, responseData);
+               }
+            };
+      Handler: index.handler
+      Runtime: "nodejs6.10"
+      Timeout: "10"
+      Role:
+        Fn::GetAtt: [EBLambdaRole, Arn]
+
+  WorkerQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 600
+      QueueName:
+        Fn::Join:
+        - "_"
+        - - "video_conversion"
+          - Ref: AppEnvironmentName
+
+  SitemapS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "sitemap"
+      AccessControl: "Private"
+
+  MasterS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "master"
+      AccessControl: "Private"
+
+  ConvertedS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "converted"
+      AccessControl: "Private"
+
+  ToolsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "tools"
+      AccessControl: "Private"
+
+  PostgresDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: postgres
+      DBName:
+        Ref: DBName
+      MultiAZ: "true"
+      MasterUsername:
+        Ref: DBUser
+      MasterUserPassword:
+        Ref: DBPassword
+      DBInstanceClass:
+        Fn::FindInMap:
+        - InstanceSizes
+        - Ref: AppEnvironmentName
+        - Postgres
+      AllocatedStorage:
+        Ref: DBAllocatedStorage
+      VPCSecurityGroups:
+      - Fn::GetAtt: [DBSecurityGroup, GroupId]
+      DBSubnetGroupName:
+        Ref: DBSubnetGroupName
+      AutoMinorVersionUpgrade: true
+      DBInstanceIdentifier:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "rds"
+      PubliclyAccessible: false
+      StorageEncrypted:
+        Fn::FindInMap:
+        - RdsStorageEncryptionSupport
+        - Fn::FindInMap:
+          - InstanceSizes
+          - Ref: AppEnvironmentName
+          - Postgres
+        - Encrypted
+
+  RedisInstance:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: "redis"
+      EngineVersion: "3.2.10"
+      NumCacheNodes: 1
+      ClusterName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "reds"
+      CacheNodeType:
+        Fn::FindInMap:
+        - InstanceSizes
+        - Ref: AppEnvironmentName
+        - Redis
+      CacheParameterGroupName: "default.redis3.2"
+      CacheSubnetGroupName:
+        Ref: RedisSubnetGroupName
+      VpcSecurityGroupIds:
+      - Fn::GetAtt: [RedisSecurityGroup, GroupId]
+
+  BastionScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName:
+        Fn::Join:
+        - ""
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "bastion"
+      MinSize: 1
+      MaxSize: 1
+      DesiredCapacity: 1
+      VPCZoneIdentifier:
+        Fn::Split:
+        - ","
+        - Ref: VpcPublicSubnetIds
+      LaunchConfigurationName:
+        Ref: BastionLaunchConfig
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+            - "bastion"
+        PropagateAtLaunch: true
+
+  BastionEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  BastionLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      AssociatePublicIpAddress: true
+      KeyName:
+        Ref: BastionKeyName
+      ImageId:
+        Fn::FindInMap:
+        - AMIs
+        - AmazonLinux
+        - ImageId
+      SecurityGroups:
+      - Ref: BastionSecurityGroup
+      InstanceType:
+        Fn::FindInMap:
+        - InstanceSizes
+        - Ref: AppEnvironmentName
+        - Bastion
+      IamInstanceProfile:
+        Ref: BastionEC2InstanceProfile
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - ""
+          - - "#!/bin/bash -ex"
+            - "\n"
+            - "export REGION="
+            - Ref: "AWS::Region"
+            - "\n"
+            - "INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
+            - "\n"
+            - "ALLOCATION_ID="
+            - Fn::GetAtt: [BastionEIP, AllocationId]
+            - "\n"
+            - "aws ec2 associate-address --instance-id \"$INSTANCE_ID\" --allocation-id \"$ALLOCATION_ID\" --allow-reassociation --region \"$REGION\" --cli-connect-timeout 5 --cli-read-timeout 10"
+            - "\n"
+
+  # SecurityGroups
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "bastion"
+      GroupDescription:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "Bastion"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+            - "bastion"
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "db"
+      GroupDescription:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "DB"
+      SecurityGroupIngress:
+      - SourceSecurityGroupId:
+          Fn::GetAtt: [BastionSecurityGroup, GroupId]
+        Description: "Allow Bastion"
+        IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+      - SourceSecurityGroupId:
+          Fn::GetAtt: [AppWebSecurityGroup, GroupId]
+        Description: "Allow Web Instances"
+        IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+      - SourceSecurityGroupId:
+          Fn::GetAtt: [AppWorkerSecurityGroup, GroupId]
+        Description: "Allow Worker Instances"
+        IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+            - "db"
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "redis"
+      GroupDescription:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "Redis"
+      SecurityGroupIngress:
+      - SourceSecurityGroupId:
+          Ref: AppWebSecurityGroup
+        Description: "Allow Web Instances"
+        IpProtocol: tcp
+        FromPort: 6379
+        ToPort: 6379
+      - SourceSecurityGroupId:
+          Fn::GetAtt: [AppWorkerSecurityGroup, GroupId]
+        Description: "Allow Worker Instances"
+        IpProtocol: tcp
+        FromPort: 6379
+        ToPort: 6379
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+            - "redis"
+
+  ELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "elb"
+      GroupDescription:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "ELB"
+      SecurityGroupIngress:
+      - CidrIp: "0.0.0.0/0"
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+      - CidrIp: "0.0.0.0/0"
+        IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+      SecurityGroupEgress:
+      - DestinationSecurityGroupId:
+          Fn::GetAtt: [AppWebSecurityGroup, GroupId]
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+      - DestinationSecurityGroupId:
+          Fn::GetAtt: [AppWebSecurityGroup, GroupId]
+        IpProtocol: tcp
+        FromPort: 90
+        ToPort: 90
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+            - "elb"
+
+  AppWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "web"
+      GroupDescription:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "Web"
+      SecurityGroupIngress:
+      - SourceSecurityGroupId:
+          Fn::GetAtt: [BastionSecurityGroup, GroupId]
+        Description: "Allow Bastion ssh"
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+            - "web"
+
+  AppWorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VpcId
+      GroupName:
+        Fn::Join:
+        - "-"
+        - - Ref: AppShortName
+          - Ref: AppEnvironmentName
+          - "worker"
+      GroupDescription:
+        Fn::Join:
+        - " "
+        - - Ref: AppName
+          - Ref: AppEnvironmentName
+          - "Worker"
+      SecurityGroupIngress:
+      - SourceSecurityGroupId:
+          Fn::GetAtt: [BastionSecurityGroup, GroupId]
+        Description: "Allow Bastion ssh"
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AppShortName
+            - Ref: AppEnvironmentName
+            - "worker"
+
+  MainWebDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: AppRoute53ZoneId
+      AliasTarget:
+        HostedZoneId:
+          Fn::FindInMap:
+          - Beanstalk2Route53HostedZoneId
+          - Ref: "AWS::Region"
+          - HostedZoneId
+        DNSName:
+          Fn::GetAtt:
+          - WebEnv25
+          - EndpointURL
+      Name:
+        Ref: EnvHttpHost
+      Type: "A"
+
+Outputs:
+  URL:
+    Description: URL of the AWS Elastic Beanstalk Environment
+    Value:
+      Fn::Join:
+      - ""
+      - - https://
+        - Fn::GetAtt:
+          - WebEnv25
+          - EndpointURL
+  BastionIP:
+    Description: Public IP of Bastion Server
+    Value:
+      Ref: BastionEIP

@@ -1,0 +1,41 @@
+doctype html
+html
+  /! Head
+  head
+    = content_tag :title, "Error - #{@exception.status} (#{@exception.response.to_s.gsub("_", " ").titleize}) | GetAudioFromVideo.com"
+
+    meta[charset="utf-8"]
+    meta[name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"]
+    meta[name="description" content="#{yield_meta_tag(:description, 'Get audio from video with our online Youtube converter')}"]
+    meta[name="keywords" content="#{yield_meta_tag(:keywords, 'get audio from video, get audio from youtube, convert youtube videos, youtube converter')}"]
+    meta[name="author" content=""]
+
+    = stylesheet_link_tag "application", media: "all", "data-turbolinks-track": "reload"
+    = javascript_include_tag "application", "data-turbolinks-track": "reload"
+    = csrf_meta_tags
+    = action_cable_meta_tag
+
+    / HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    / WARNING: Respond.js doesn't work if you view the page via file:// -->
+    / [if lt IE 9]>
+    /   <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    /   <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    / <![endif]
+  body
+    = render "layouts/navbar"
+
+    .container
+      .row.justify-content-center
+        .col-10
+          .jumbotron.text-center
+            = content_tag :div, class: "exception", data: { status: @exception.status, response: @exception.response.to_s.humanize, rails: Rails.version }, onclick: ("location.href=\"#{root_url}\";" if @exception.status == "500" && Rails.application.routes.recognize_path("/")), title: ("Return Home" if @exception.status == "500" && Rails.application.routes.recognize_path("/")) do
+              / = content_tag :span, @exception.description.html_safe
+              = content_tag :h3, "Error: #{@exception.status} (#{@exception.response.to_s.gsub("_", " ").titleize})"
+      .row.justify-content-center
+        .col-10.text-center
+          h6 Oops something went wrong, we have been automatically notified of this problem.
+
+    = render "layouts/footer"
+
+    / back-to-top button
+    a.cd-top[href="#0"]

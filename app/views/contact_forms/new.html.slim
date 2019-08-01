@@ -1,0 +1,31 @@
+- title 'Contact Us'
+
+.container
+  .row.justify-content-center
+    .col-10
+      .jumbotron
+        h3 Contact Us
+  .row.justify-content-center
+    .col-10.col-sm-12.col-md-8
+      .alert.alert-danger role="alert"
+          | Please first look at our&nbsp;
+          = link_to "FAQ page", faq_path, class: "font-weight-bold"
+          | &nbsp;for answers to common questions before sending us a message.
+  br
+  .row.justify-content-center
+    .col-10.col-sm-8.col-md-6
+      = form_for @contact_form do |f|
+        = f.hidden_field :nickname
+        .form-group
+          = f.label :name
+          = f.text_field :name, autofocus: true, class: "form-control", required: true
+        .form-group
+          = f.label :email
+          = f.email_field :email, autofocus: true, class: "form-control", required: true
+        .form-group
+          = f.label :message
+          = f.text_area :message, autofocus: true, class: "form-control", rows: 4, placeholder: "Maximum of 2000 characters", required: true
+        .actions.clearfix
+          .float-left
+            = recaptcha_tags
+          = f.submit "Send message", class: "btn btn-success ml-auto"

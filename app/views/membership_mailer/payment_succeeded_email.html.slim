@@ -1,0 +1,17 @@
+p 
+  | Thank you for being a member of 
+  a href="https://getaudiofromvideo.com" GetAudioFromVideo.com.
+p
+  | Here is your payment details:
+ul
+  li 
+    | Subscription: 
+    = @subscription.plan.name 
+  li 
+    | Amount: 
+    = amount_helper(@amount)
+  li 
+    | Payment date: 
+    = date_helper(@date)
+p
+  | If you have any questions, please contact us at: support@getaudiofromvideo.com.

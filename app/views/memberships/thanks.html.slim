@@ -1,0 +1,38 @@
+- title 'Thanks'
+
+.container
+  .col-md-6.mx-auto
+    .card.card-outline-danger
+      h3.card-header.bg-danger.text-white.text-center
+        | One time special offer
+      .card-body
+        h5.card-title.text-center
+          | Upgrade to annual membership
+          br
+          | with a 40% discount!
+          br
+          br
+          small.text-muted
+            del
+              | &nbsp;Normal price: ($
+              = (Membership.find_by(stripe_id: "yearly").price_in_dollars) / 12
+              | /month)&nbsp;20% off
+        .card-text
+          .row.justify-content-center
+            .align-self-center.text-center
+              = oto_upgrade_amount_helper(@subscription)
+              = oto_upgrade_button_helper(@subscription)
+          br
+          .row.justify-content-center
+            .align-self-center.text-center
+              #countdown-container
+                strong
+                  | Expires in:
+                  #countdown-timer
+        .card-title
+            .card-text.text-center
+              br
+              h5
+                strong
+                  i.text-danger
+                    | Upgrade now, you won't see this offer again!
