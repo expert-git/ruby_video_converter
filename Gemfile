@@ -28,7 +28,7 @@ gem 'font-awesome-rails'
 gem 'will_paginate-bootstrap4'
 
 # User authentication
-gem 'devise', '~> 4.6.2'
+gem 'devise', '~> 4.7.1'
 # gem "devise-async"
 gem 'gravatarify', '~> 3.1.1'
 gem 'mailgun-ruby', '~>1.1.11'
